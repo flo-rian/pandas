@@ -1,3 +1,5 @@
+""" manage PyTables query interface via Expressions """
+
 import sys, inspect
 import re
 import ast
