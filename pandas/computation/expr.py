@@ -19,7 +19,7 @@ import datetime
 
 class Scope(object):
     __slots__ = ('globals', 'locals', 'resolvers', '_global_resolvers',
-                 'resolver_keys')
+                 'resolver_keys', '_resolver')
 
     def __init__(self, gbls=None, lcls=None, frame_level=1, resolvers=None):
         frame = sys._getframe(frame_level)
@@ -38,17 +38,20 @@ class Scope(object):
         self.resolver_keys = set(reduce(operator.add, (o.keys() for o in
                                                        self.resolvers), set()))
         self._global_resolvers = self.resolvers + [self.locals, self.globals]
+        self._resolver = None
 
     @property
     def resolver(self):
-        def resolve_key(key):
-            for resolver in self._global_resolvers:
-                try:
-                    return resolver[key]
-                except KeyError:
-                    pass
+        if self._resolver is None:
+            def resolve_key(key):
+                for resolver in self._global_resolvers:
+                    try:
+                        return resolver[key]
+                    except KeyError:
+                        pass
+            self._resolver = resolve_key
 
-        return resolve_key
+        return self._resolver
 
     def update(self, scope_level=None):
 
