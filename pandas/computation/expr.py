@@ -28,7 +28,7 @@ class Scope(object):
         finally:
             del frame
 
-        # add some usefule defaults
+        # add some useful defaults
         self.globals['Timestamp'] = lib.Timestamp
         self.globals['datetime'] = datetime
 
@@ -149,7 +149,7 @@ class BaseExprVisitor(ast.NodeVisitor):
 
     def visit_UnaryOp(self, node, **kwargs):
         if isinstance(node.op, ast.Not):
-            self.not_implemented('not operator')
+            self.not_implemented('"not" operator')
         op = self.visit(node.op)
         return op(self.visit(node.operand))
 
