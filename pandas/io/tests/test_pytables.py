@@ -2315,6 +2315,47 @@ class TestHDFStore(unittest.TestCase):
             # self.assertRaises(ValueError, store.select,
             #                  'frame', [crit1, crit2])
 
+    def test_frame_select_complex(self):
+        """ select via complex criteria """
+
+        df = tm.makeTimeDataFrame()
+        df['string'] = 'foo'
+        df.loc[df.index[0:4],'string'] = 'bar'
+
+        with ensure_clean(self.path) as store:
+            store.put('df', df, table=True, data_columns=['string'])
+
+            # empty
+            result = store.select('df', 'index>df.index[3] & string="bar"')
+            expected = df.loc[(df.index>df.index[3]) & (df.string=='bar')]
+            tm.assert_frame_equal(result, expected)
+
+            result = store.select('df', 'index>df.index[3] & string="foo"')
+            expected = df.loc[(df.index>df.index[3]) & (df.string=='foo')]
+            tm.assert_frame_equal(result, expected)
+
+            # or
+            result = store.select('df', 'index>df.index[3] | string="bar"')
+            expected = df.loc[(df.index>df.index[3]) | (df.string=='bar')]
+            tm.assert_frame_equal(result, expected)
+
+            result = store.select('df', '(index>df.index[3] & index<=df.index[6]) | string="bar"')
+            expected = df.loc[((df.index>df.index[3]) & (df.index<=df.index[6])) | (df.string=='bar')]
+            tm.assert_frame_equal(result, expected)
+
+            # invert
+            result = store.select('df', 'string!="bar"')
+            expected = df.loc[df.string!='bar']
+            tm.assert_frame_equal(result, expected)
+
+            # invert not implemented in numexpr :(
+            self.assertRaises(NotImplementedError, store.select, 'df', '~(string="bar")')
+
+            # invert ok for filters
+            result = store.select('df', "~(columns=['A','B'])")
+            expected = df.loc[:,df.columns-['A','B']]
+            tm.assert_frame_equal(result, expected)
+
     def test_string_select(self):
 
         # GH 2973

@@ -189,6 +189,14 @@ class FilterBinOp(BinOp):
         return com.pprint_thing("[Filter : [{0}] -> "
                                 "[{1}]".format(self.filter[0], self.filter[1]))
 
+    def invert(self):
+        """ invert the filter """
+        if self.filter is not None:
+            f = list(self.filter)
+            f[1] = self.generate_filter_op(invert=True)
+            self.filter = tuple(f)
+        return self
+
     def format(self):
         """ return the actual filter format """
         return [self.filter]
@@ -209,12 +217,7 @@ class FilterBinOp(BinOp):
             # if too many values to create the expression, use a filter instead
             if self.op in ['==', '!='] and len(values) > self._max_selectors:
 
-                # our filter op expression
-                if self.op == '!=':
-                    filter_op = lambda axis, vals: not axis.isin(vals)
-                else:
-                    filter_op = lambda axis, vals: axis.isin(vals)
-
+                filter_op = self.generate_filter_op()
                 self.filter = (
                     self.lhs,
                     filter_op,
@@ -226,12 +229,7 @@ class FilterBinOp(BinOp):
         # equality conditions
         if self.op in ['==', '!=']:
 
-            # our filter op expression
-            if self.op == '!=':
-                filter_op = lambda axis, vals: not axis.isin(vals)
-            else:
-                filter_op = lambda axis, vals: axis.isin(vals)
-
+            filter_op = self.generate_filter_op()
             self.filter = (
                 self.lhs,
                 filter_op,
@@ -244,6 +242,11 @@ class FilterBinOp(BinOp):
 
         return self
 
+    def generate_filter_op(self, invert=False):
+        if (self.op == '!=' and not invert) or (self.op == '==' and invert):
+            return lambda axis, vals: ~axis.isin(vals)
+        else:
+            return lambda axis, vals: axis.isin(vals)
 
 class JointFilterBinOp(FilterBinOp):
 
@@ -258,6 +261,13 @@ class ConditionBinOp(BinOp):
 
     def __unicode__(self):
         return com.pprint_thing("[Condition : [{0}]]".format(self.condition))
+
+    def invert(self):
+        """ invert the condition """
+        #if self.condition is not None:
+        #    self.condition = "~(%s)" % self.condition
+        #return self
+        raise NotImplementedError("cannot use an invert condition when passing to numexpr")
 
     def format(self):
         """ return the actual ne format """
@@ -307,11 +317,23 @@ class JointConditionBinOp(ConditionBinOp):
 
 class UnaryOp(ops.UnaryOp):
 
-    def apply(self, func):
-        operand = self.operand
-        v = operand.value if is_term(operand) else operand
-        return "%s (%s)" % (operand, v)
+    def prune(self, klass):
 
+        if self.op != '~':
+            raise NotImplementedError("UnaryOp only support invert type ops")
+
+        operand = self.operand
+        operand = operand.prune(klass)
+
+        if operand is not None:
+            if issubclass(klass,ConditionBinOp):
+                if operand.condition is not None:
+                    return operand.invert()
+            elif issubclass(klass,FilterBinOp):
+                if operand.filter is not None:
+                    return operand.invert()
+
+        return None
 
 class ExprVisitor(BaseExprVisitor):
     bin_ops = '>', '<', '>=', '<=', '==', '!=', '&', '|'
@@ -387,8 +409,8 @@ class ExprVisitor(BaseExprVisitor):
         return Term(node.id, self.env, side=side)
 
     def visit_UnaryOp(self, node, **kwargs):
-        if isinstance(node.op, ast.Not):
-            return UnaryOp(node.op, self.visit(node.operand))
+        if isinstance(node.op, (ast.Not,ast.Invert)):
+            return UnaryOp('~', self.visit(node.operand))
         elif isinstance(node.op, ast.USub):
             return Constant(-self.visit(node.operand).value, self.env)
         self.not_implemented("{0} unary operations".format(node.op))
