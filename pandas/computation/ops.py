@@ -49,7 +49,7 @@ class Term(StringMixin):
     def _resolve_name(self):
         env = self.env
         key = self.name
-        res = env.resolver.get(key, env.locals.get(key, env.globals.get(key)))
+        res = env.resolver(key)
 
         if res is None:
             if not isinstance(key, basestring):
@@ -65,7 +65,7 @@ class Term(StringMixin):
                 del env.locals[key]
                 env.locals[key] = value
             except KeyError:
-                if key in self.env.resolver:
+                if key in env.resolver_keys:
                     env.locals[key] = value
                 else:
                     try:

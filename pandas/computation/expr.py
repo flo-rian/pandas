@@ -1,4 +1,5 @@
 import ast
+import operator
 import sys
 import inspect
 import itertools
@@ -17,9 +18,10 @@ import datetime
 
 
 class Scope(object):
-    __slots__ = 'globals', 'locals', 'resolver'
+    __slots__ = ('globals', 'locals', 'resolvers', '_global_resolvers',
+                 'resolver_keys')
 
-    def __init__(self, gbls=None, lcls=None, frame_level=1, resolver=None):
+    def __init__(self, gbls=None, lcls=None, frame_level=1, resolvers=None):
         frame = sys._getframe(frame_level)
 
         try:
@@ -32,7 +34,21 @@ class Scope(object):
         self.globals['Timestamp'] = lib.Timestamp
         self.globals['datetime'] = datetime
 
-        self.resolver = resolver or self.locals
+        self.resolvers = resolvers or []
+        self.resolver_keys = set(reduce(operator.add, (o.keys() for o in
+                                                       self.resolvers), set()))
+        self._global_resolvers = self.resolvers + [self.locals, self.globals]
+
+    @property
+    def resolver(self):
+        def resolve_key(key):
+            for resolver in self._global_resolvers:
+                try:
+                    return resolver[key]
+                except KeyError:
+                    pass
+
+        return resolve_key
 
     def update(self, scope_level=None):
 
