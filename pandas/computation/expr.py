@@ -1,8 +1,8 @@
 import ast
-import sys, inspect
+import sys
+import inspect
 import itertools
 import tokenize
-import re
 from cStringIO import StringIO
 from functools import partial
 
@@ -10,10 +10,11 @@ from pandas.core.base import StringMixin
 from pandas.computation.ops import BinOp, UnaryOp, _reductions, _mathops
 from pandas.computation.ops import _cmp_ops_syms, _bool_ops_syms
 from pandas.computation.ops import _arith_ops_syms, _unary_ops_syms
-from pandas.computation.ops import Term, Constant, Value
+from pandas.computation.ops import Term, Constant
 
-from pandas import Timestamp
+import pandas.lib as lib
 import datetime
+
 
 class Scope(object):
     __slots__ = 'globals', 'locals'
@@ -28,7 +29,7 @@ class Scope(object):
             del frame
 
         # add some usefule defaults
-        self.globals['Timestamp'] = Timestamp
+        self.globals['Timestamp'] = lib.Timestamp
         self.globals['datetime'] = datetime
 
     def update(self, scope_level=None):
@@ -46,7 +47,7 @@ class Scope(object):
         frame = inspect.currentframe()
         try:
             frames = []
-            while(sl>=0):
+            while sl >= 0:
                 frame = frame.f_back
                 sl -= 1
                 frames.append(frame)
@@ -55,6 +56,7 @@ class Scope(object):
         finally:
             del frame
             del frames
+
 
 class ExprParserError(Exception):
     pass
@@ -81,15 +83,16 @@ def _parenthesize_booleans(source, ops='|&'):
     return res
 
 
-def preparse(source):
+def _preparse(source):
     return _parenthesize_booleans(_rewrite_assign(source))
 
 
-class ExprVisitor(ast.NodeVisitor):
+class BaseExprVisitor(ast.NodeVisitor):
+
     """Custom ast walker
     """
     bin_ops = _cmp_ops_syms + _bool_ops_syms + _arith_ops_syms
-    bin_op_nodes = ('Gt', 'Lt', 'GtE', 'LtE', 'Eq', 'NotEq', None,
+    bin_op_nodes = ('Gt', 'Lt', 'GtE', 'LtE', 'Eq', 'NotEq', None,  # for =
                     'BitAnd', 'BitOr', 'Add', 'Sub', 'Mult', 'Div', 'Pow',
                     'FloorDiv', 'Mod')
     bin_op_nodes_map = dict(zip(bin_ops, bin_op_nodes))
@@ -117,12 +120,12 @@ class ExprVisitor(ast.NodeVisitor):
             raise TypeError('"node" must be an AST node or a string, you'
                             ' passed a(n) {0}'.format(node.__class__))
         if isinstance(node, basestring):
-            node = ast.fix_missing_locations(ast.parse(preparse(node)))
+            node = ast.fix_missing_locations(ast.parse(_preparse(node)))
 
         method = 'visit_' + node.__class__.__name__
         visitor = getattr(self, method, None)
         if visitor is None:
-            self.not_implemented("ast visitor [{0}]".format(method))
+            self.not_implemented("ast visitor {0!r}".format(method))
         return visitor(node, **kwargs)
 
     def visit_Module(self, node, **kwargs):
@@ -140,8 +143,8 @@ class ExprVisitor(ast.NodeVisitor):
 
     def visit_BinOp(self, node, **kwargs):
         op = self.visit(node.op)
-        left = self.visit(node.left,side='left')
-        right = self.visit(node.right,side='right')
+        left = self.visit(node.left, side='left')
+        right = self.visit(node.right, side='right')
         return op(left, right)
 
     def visit_UnaryOp(self, node, **kwargs):
@@ -150,55 +153,34 @@ class ExprVisitor(ast.NodeVisitor):
         op = self.visit(node.op)
         return op(self.visit(node.operand))
 
-    def visit_List(self, node, **kwargs):
-        return Value([ self.visit(e).value for e in node.elts ], self.env)
-
     def visit_Name(self, node, **kwargs):
         return Term(node.id, self.env)
 
     def visit_Num(self, node, **kwargs):
         return Constant(node.n, self.env)
 
-    def visit_Str(self, node, **kwargs):
-        return Value(node.s, self.env)
-
-    def visit_Index(self, node, **kwargs):
-        """ df.index[4] """
-        return self.visit(node.value).value
-
-    def visit_Subscript(self, node, **kwargs):
-        """ df.index[4:6] """
-        value = self.visit(node.value)
-        slobj = self.visit(node.slice)
-
-        return Value(value[slobj],self.env)
-
-    def visit_Slice(self, node, **kwargs):
-        """ df.index[slice(4,6)] """
-        lower = node.lower
-        if lower is not None:
-            lower = self.visit(lower).value
-        upper = node.upper
-        if upper is not None:
-            upper = self.visit(upper).value
-        step = node.step
-        if step is not None:
-            step = self.visit(step).value
-
-        return slice(lower,upper,step)
-
     def visit_Compare(self, node, **kwargs):
         ops = node.ops
         comps = node.comparators
         if len(ops) != 1:
             raise ExprParserError('chained comparisons not supported')
-        return self.visit(ops[0])(self.visit(node.left,side='left'), self.visit(comps[0],side='right'))
+        return self.visit(ops[0])(self.visit(node.left, side='left'),
+                                  self.visit(comps[0], side='right'))
 
     def visit_Assign(self, node, **kwargs):
-        cmpr = ast.copy_location(ast.Compare(ops=[ast.Eq()],
-                                             left=node.targets[0],
-                                             comparators=[node.value]), node)
-        return self.visit(cmpr)
+        self.not_implemented('assignment')
+
+    def visit_Call(self, node, **kwargs):
+        self.not_implemented('function calls')
+
+    def visit_Attribute(self, node, **kwargs):
+        self.not_implemented('attribute access')
+
+    def visit_BoolOp(self, node, **kwargs):
+        self.not_implemented('boolean operators')
+
+
+class NumExprVisitor(BaseExprVisitor):
 
     def visit_Call(self, node, **kwargs):
         if not isinstance(node.func, ast.Name):
@@ -209,21 +191,19 @@ class ExprVisitor(ast.NodeVisitor):
         if node.func.id not in valid_ops:
             raise ValueError("Only {0} are supported".format(valid_ops))
 
-        self.not_implemented('function calls')
 
-    def visit_Attribute(self, node, **kwargs):
-        self.not_implemented('attribute access')
-
-    def visit_BoolOp(self, node, **kwargs):
-        self.not_implemented('boolean operators')
+class PythonExprVisitor(BaseExprVisitor):
+    pass
 
 
 class Expr(StringMixin):
+
     """Expr object"""
+
     def __init__(self, expr, engine='numexpr', env=None, truediv=True):
         self.expr = expr
         self.env = env or Scope(frame_level=2)
-        self._visitor = ExprVisitor(self.env)
+        self._visitor = _visitors[engine](self.env)
         self.terms = self.parse()
         self.engine = engine
         self.truediv = truediv
@@ -253,3 +233,6 @@ def isexpr(s, check_names=True):
         return not check_names
     else:
         return True
+
+
+_visitors = {'python': PythonExprVisitor, 'numexpr': NumExprVisitor}

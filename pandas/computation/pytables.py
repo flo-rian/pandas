@@ -1,34 +1,40 @@
 """ manage PyTables query interface via Expressions """
 
-import sys, inspect
-import re
 import ast
-from functools import partial
-import numpy as np
-from datetime import datetime
 import time
 
-import pandas
+from functools import partial
+from datetime import datetime
+
+import numpy as np
+
 import pandas.core.common as com
 import pandas.lib as lib
 from pandas.computation import expr, ops
 from pandas.computation.ops import is_term, Value
-from pandas.computation.expr import ExprParserError
+from pandas.computation.expr import BaseExprVisitor, ExprParserError
 from pandas import Index
 from pandas.core.common import is_list_like
 
+
 def _ensure_decoded(s):
-    """ if we have bytes, decode them to unicde """
+    """ if we have bytes, decode them to unicode """
     if isinstance(s, (np.bytes_, bytes)):
         s = s.decode('UTF-8')
     return s
+
 
 class Scope(expr.Scope):
     __slots__ = 'globals', 'locals', 'queryables'
 
     def __init__(self, gbls=None, lcls=None, queryables=None, frame_level=1):
-        super(Scope, self).__init__(gbls=gbls, lcls=lcls, frame_level=frame_level)
+        super(
+            Scope,
+            self).__init__(gbls=gbls,
+                           lcls=lcls,
+                           frame_level=frame_level)
         self.queryables = queryables or dict()
+
 
 class Term(ops.Term):
 
@@ -44,7 +50,9 @@ class Term(ops.Term):
             return self.name
 
         # resolve the rhs (and allow to be None)
-        return self.env.locals.get(self.name, self.env.globals.get(self.name,self.name))
+        return self.env.locals.get(self.name,
+                                   self.env.globals.get(self.name, self.name))
+
 
 class BinOp(ops.BinOp):
 
@@ -69,7 +77,8 @@ class BinOp(ops.BinOp):
 
             k = klass
             if isinstance(left, ConditionBinOp):
-                if isinstance(left, ConditionBinOp) and isinstance(right, ConditionBinOp):
+                if (isinstance(left, ConditionBinOp) and
+                    isinstance(right, ConditionBinOp)):
                     k = JointConditionBinOp
                 elif isinstance(left, k):
                     return left
@@ -77,33 +86,35 @@ class BinOp(ops.BinOp):
                     return right
 
             elif isinstance(left, FilterBinOp):
-                if isinstance(left, FilterBinOp) and isinstance(right, FilterBinOp):
+                if (isinstance(left, FilterBinOp) and
+                    isinstance(right, FilterBinOp)):
                     k = JointFilterBinOp
                 elif isinstance(left, k):
                     return left
                 elif isinstance(right, k):
                     return right
 
-            return k(self.op, left, right, queryables=self.queryables, encoding=self.encoding).evaluate()
+            return k(self.op, left, right, queryables=self.queryables,
+                     encoding=self.encoding).evaluate()
 
         left, right = self.lhs, self.rhs
 
         if is_term(left) and is_term(right):
-            res = pr(left.value,right.value)
+            res = pr(left.value, right.value)
         elif not is_term(left) and is_term(right):
-            res = pr(left.prune(klass),right.value)
+            res = pr(left.prune(klass), right.value)
         elif is_term(left) and not is_term(right):
-            res = pr(left.value,right.prune(klass))
+            res = pr(left.value, right.prune(klass))
         elif not (is_term(left) or is_term(right)):
-            res = pr(left.prune(klass),right.prune(klass))
+            res = pr(left.prune(klass), right.prune(klass))
 
         return res
 
     def conform(self, rhs):
         """ inplace conform rhs """
         if not is_list_like(rhs):
-            rhs = [ rhs ]
-        if hasattr(self.rhs,'ravel'):
+            rhs = [rhs]
+        if hasattr(self.rhs, 'ravel'):
             rhs = rhs.ravel()
         return rhs
 
@@ -114,7 +125,8 @@ class BinOp(ops.BinOp):
 
     @property
     def is_in_table(self):
-        """ return True if this is a valid column name for generation (e.g. an actual column in the table) """
+        """ return True if this is a valid column name for generation (e.g. an
+        actual column in the table) """
         return self.queryables.get(self.lhs) is not None
 
     @property
@@ -128,7 +140,8 @@ class BinOp(ops.BinOp):
         return "(%s %s %s)" % (self.lhs, self.op, val)
 
     def convert_value(self, v):
-        """ convert the expression that is in the term to something that is accepted by pytables """
+        """ convert the expression that is in the term to something that is
+        accepted by pytables """
 
         def stringify(value):
             value = str(value)
@@ -148,7 +161,7 @@ class BinOp(ops.BinOp):
             return TermValue(v, v.value, kind)
         elif isinstance(v, datetime) or hasattr(v, 'timetuple') or kind == u'date':
             v = time.mktime(v.timetuple())
-            return TermValue(v, Timestamp(v), kind)
+            return TermValue(v, lib.Timestamp(v), kind)
         elif kind == u'integer':
             v = int(float(v))
             return TermValue(v, v, kind)
@@ -157,8 +170,8 @@ class BinOp(ops.BinOp):
             return TermValue(v, v, kind)
         elif kind == u'bool':
             if isinstance(v, basestring):
-                v = not v.strip().lower() in [
-                    u'false', u'f', u'no', u'n', u'none', u'0', u'[]', u'{}', u'']
+                v = not v.strip().lower() in [u'false', u'f', u'no', u'n',
+                                              u'none', u'0', u'[]', u'{}', u'']
             else:
                 v = bool(v)
             return TermValue(v, v, kind)
@@ -169,18 +182,20 @@ class BinOp(ops.BinOp):
         # string quoting
         return TermValue(v, stringify(v), u'string')
 
+
 class FilterBinOp(BinOp):
 
     def __unicode__(self):
-        return com.pprint_thing("[Filter : [{0}] -> [{1}]".format(self.filter[0],self.filter[1]))
+        return com.pprint_thing("[Filter : [{0}] -> "
+                                "[{1}]".format(self.filter[0], self.filter[1]))
 
     def format(self):
         """ return the actual filter format """
-        return [ self.filter ]
+        return [self.filter]
 
     def evaluate(self):
 
-        if not isinstance(self.lhs,basestring):
+        if not isinstance(self.lhs, basestring):
             return self
 
         if not self.is_valid:
@@ -206,7 +221,6 @@ class FilterBinOp(BinOp):
                     Index([v.value for v in values]))
 
                 return self
-
             return None
 
         # equality conditions
@@ -224,12 +238,12 @@ class FilterBinOp(BinOp):
                 Index([v.value for v in values]))
 
         else:
-
             raise TypeError(
                 "passing a filterable condition to a non-table indexer [%s]" %
                 self)
 
         return self
+
 
 class JointFilterBinOp(FilterBinOp):
 
@@ -238,6 +252,7 @@ class JointFilterBinOp(FilterBinOp):
 
     def evaluate(self):
         return self
+
 
 class ConditionBinOp(BinOp):
 
@@ -250,7 +265,7 @@ class ConditionBinOp(BinOp):
 
     def evaluate(self):
 
-        if not isinstance(self.lhs,basestring):
+        if not isinstance(self.lhs, basestring):
             return self
 
         if not self.is_valid:
@@ -273,32 +288,34 @@ class ConditionBinOp(BinOp):
 
             # use a filter after reading
             else:
-
                 return None
-
         else:
-
             self.condition = self.generate(values[0])
 
         return self
 
+
 class JointConditionBinOp(ConditionBinOp):
 
     def evaluate(self):
-        self.condition = "(%s %s %s)" % (self.lhs.condition,self.op,self.rhs.condition)
+        self.condition = "(%s %s %s)" % (
+            self.lhs.condition,
+            self.op,
+            self.rhs.condition)
         return self
+
 
 class UnaryOp(ops.UnaryOp):
 
     def apply(self, func):
         operand = self.operand
         v = operand.value if is_term(operand) else operand
-        return "%s (%s)" % (operand,v)
+        return "%s (%s)" % (operand, v)
 
-class ExprVisitor(expr.ExprVisitor):
 
+class ExprVisitor(BaseExprVisitor):
     bin_ops = '>', '<', '>=', '<=', '==', '!=', '&', '|'
-    unary_ops =  ['-','~']
+    unary_ops = '-', '~'
 
     def __init__(self, env, **kwargs):
         for bin_op in self.bin_ops:
@@ -325,7 +342,7 @@ class ExprVisitor(expr.ExprVisitor):
         ctx = node.ctx.__class__
         if ctx == ast.Load:
             # resolve the value
-            return getattr(self.visit(value).value,attr)
+            return getattr(self.visit(value).value, attr)
         raise ValueError("Invalid Attribute context {0}".format(ctx.__name__))
 
     def visit_Call(self, node, **kwargs):
@@ -340,7 +357,7 @@ class ExprVisitor(expr.ExprVisitor):
 
         if res is None:
             raise ValueError("Invalid function call {0}".format(node.func.id))
-        if hasattr(res,'value'):
+        if hasattr(res, 'value'):
             res = res.value
 
         args = [self.visit(targ).value for targ in node.args]
@@ -350,18 +367,20 @@ class ExprVisitor(expr.ExprVisitor):
         keywords = {}
         for key in node.keywords:
             if not isinstance(key, ast.keyword):
-                raise ValueError("keyword error in function call '{0}'".format(node.func.id))
+                raise ValueError(
+                    "keyword error in function call '{0}'".format(node.func.id))
             keywords[key.arg] = self.visit(key.value).value
         if node.kwargs is not None:
             keywords.update(self.visit(node.kwargs).value)
 
-        return Value(res(*args,**keywords),self.env)
+        return Value(res(*args, **keywords), self.env)
 
     def visit_Compare(self, node, **kwargs):
         ops = node.ops
         comps = node.comparators
         for op, comp in zip(ops, comps):
-            node = self.visit(op)(self.visit(node.left,side='left'), self.visit(comp,side='right'))
+            node = self.visit(op)(
+                self.visit(node.left, side='left'), self.visit(comp, side='right'))
         return node
 
     def visit_Name(self, node, side=None, **kwargs):
@@ -369,10 +388,47 @@ class ExprVisitor(expr.ExprVisitor):
 
     def visit_UnaryOp(self, node, **kwargs):
         if isinstance(node.op, ast.Not):
-            return UnaryOp(node.op,self.visit(node.operand))
+            return UnaryOp(node.op, self.visit(node.operand))
         elif isinstance(node.op, ast.USub):
-            return Value(-self.visit(node.operand).value,self.env)
+            return Value(-self.visit(node.operand).value, self.env)
         self.not_implemented("{0} unary operations".format(node.op))
+
+    def visit_Str(self, node, **kwargs):
+        return Value(node.s, self.env)
+
+    def visit_List(self, node, **kwargs):
+        return Value([self.visit(e).value for e in node.elts], self.env)
+
+    def visit_Index(self, node, **kwargs):
+        """ df.index[4] """
+        return self.visit(node.value).value
+
+    def visit_Subscript(self, node, **kwargs):
+        """ df.index[4:6] """
+        value = self.visit(node.value)
+        slobj = self.visit(node.slice)
+
+        return Value(value[slobj], self.env)
+
+    def visit_Slice(self, node, **kwargs):
+        """ df.index[slice(4,6)] """
+        lower = node.lower
+        if lower is not None:
+            lower = self.visit(lower).value
+        upper = node.upper
+        if upper is not None:
+            upper = self.visit(upper).value
+        step = node.step
+        if step is not None:
+            step = self.visit(step).value
+
+        return slice(lower, upper, step)
+
+    def visit_Assign(self, node, **kwargs):
+        cmpr = ast.Compare(ops=[ast.Eq()], left=node.targets[0],
+                           comparators=[node.value])
+        return self.visit(cmpr)
+
 
 class Expr(expr.Expr):
 
@@ -392,23 +448,26 @@ class Expr(expr.Expr):
     --------
     """
 
-    def __init__(self, where, op=None, value=None, queryables=None, encoding=None, scope_level=None):
+    def __init__(self, where, op=None, value=None, queryables=None,
+                 encoding=None, scope_level=None):
 
         # try to be back compat
         if op is not None:
             if not isinstance(where, basestring):
-                raise TypeError("where must be passed as a string if op/value are passed")
+                raise TypeError(
+                    "where must be passed as a string if op/value are passed")
             if isinstance(op, Expr):
                 raise TypeError("invalid op passed, must be a string")
-            where = "{0}{1}".format(where,op)
+            where = "{0}{1}".format(where, op)
             if value is not None:
                 if isinstance(value, Expr):
                     raise TypeError("invalid value passed, must be a string")
-                where = "{0}{1}".format(where,value)
+                where = "{0}{1}".format(where, value)
 
             import warnings
-            warnings.warn("passing multiple values to Expre is deprecated "
-                          "pass the where as a single string", DeprecationWarning)
+            warnings.warn("passing multiple values to Expr is deprecated "
+                          "pass the where as a single string",
+                          DeprecationWarning)
 
         self.encoding = encoding
         self.condition = None
@@ -429,16 +488,17 @@ class Expr(expr.Expr):
                 if isinstance(w, Expr):
                     lcls.update(w.env.locals)
 
-            where = ' & ' .join([ "(%s)" % w for w in where])
+            where = ' & ' .join(["(%s)" % w for w in where])
 
         self.expr = where
-        self.env = Scope(lcls = lcls)
+        self.env = Scope(lcls=lcls)
         self.env.update(scope_level)
 
         if queryables is not None:
 
             self.env.queryables.update(queryables)
-            self._visitor = ExprVisitor(self.env, queryables=queryables, encoding=encoding)
+            self._visitor = ExprVisitor(self.env, queryables=queryables,
+                                        encoding=encoding)
             self.terms = self.parse()
 
     def __unicode__(self):
@@ -452,13 +512,16 @@ class Expr(expr.Expr):
         try:
             self.condition = self.terms.prune(ConditionBinOp)
         except AttributeError:
-            raise ValueError("cannot process node for the condition [{0}]".format(self))
+            raise ValueError(
+                "cannot process node for the condition [{0}]".format(self))
         try:
             self.filter = self.terms.prune(FilterBinOp)
         except AttributeError:
-            raise ValueError("cannot process node for the filter [{0}]".format(self))
+            raise ValueError(
+                "cannot process node for the filter [{0}]".format(self))
 
         return self.condition, self.filter
+
 
 class TermValue(object):
 
@@ -477,5 +540,3 @@ class TermValue(object):
                 return self.converted
             return '"%s"' % self.converted
         return self.converted
-
-
