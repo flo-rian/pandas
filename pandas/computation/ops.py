@@ -49,12 +49,11 @@ class Term(StringMixin):
     def _resolve_name(self):
         env = self.env
         key = self.name
-        res = env.locals.get(key, env.globals.get(key))
+        res = env.resolver.get(key, env.locals.get(key, env.globals.get(key)))
 
         if res is None:
             if not isinstance(key, basestring):
                 return key
-
             raise NameError('name {0!r} is not defined'.format(key))
         return res
 
@@ -66,11 +65,14 @@ class Term(StringMixin):
                 del env.locals[key]
                 env.locals[key] = value
             except KeyError:
-                try:
-                    del env.globals[key]
-                    env.globals[key] = value
-                except KeyError:
-                    raise NameError('{0!r} is undefined'.format(key))
+                if key in self.env.resolver:
+                    env.locals[key] = value
+                else:
+                    try:
+                        del env.globals[key]
+                        env.globals[key] = value
+                    except KeyError:
+                        raise NameError('{0!r} is undefined'.format(key))
 
         self.value = value
 
@@ -83,6 +85,7 @@ class Constant(Term):
     def __init__(self, value, env):
         super(Constant, self).__init__(value, env)
 
+
 class Value(Term):
     """ a resolved value """
     def __init__(self, value, env, name=None):
@@ -93,6 +96,7 @@ class Value(Term):
 
     def __unicode__(self):
         return com.pprint_thing(self.value)
+
 
 def _print_operand(opr):
     return opr.name if is_term(opr) else unicode(opr)

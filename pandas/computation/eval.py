@@ -11,7 +11,7 @@ from pandas.computation.engines import _engines
 
 
 def eval(expr, engine='numexpr', truediv=True, local_dict=None,
-         global_dict=None):
+         global_dict=None, resolver=None):
     """Evaluate a Python expression as a string using various backends.
 
     The following arithmetic operations are supported: +, -, *, /, **, %, //
@@ -62,7 +62,7 @@ def eval(expr, engine='numexpr', truediv=True, local_dict=None,
 
     if isinstance(expr, six.string_types):
         # need to go 2 up in the call stack from the constructor
-        env = Scope(global_dict, local_dict, frame_level=2)
+        env = Scope(global_dict, local_dict, frame_level=2, resolver=resolver)
         parsed_expr = Expr(expr, engine, env, truediv)
     elif isinstance(expr, Expr):
         parsed_expr = expr

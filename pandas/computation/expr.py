@@ -17,9 +17,9 @@ import datetime
 
 
 class Scope(object):
-    __slots__ = 'globals', 'locals'
+    __slots__ = 'globals', 'locals', 'resolver'
 
-    def __init__(self, gbls=None, lcls=None, frame_level=1):
+    def __init__(self, gbls=None, lcls=None, frame_level=1, resolver=None):
         frame = sys._getframe(frame_level)
 
         try:
@@ -31,6 +31,8 @@ class Scope(object):
         # add some useful defaults
         self.globals['Timestamp'] = lib.Timestamp
         self.globals['datetime'] = datetime
+
+        self.resolver = resolver or self.locals
 
     def update(self, scope_level=None):
 

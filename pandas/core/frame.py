@@ -2064,11 +2064,7 @@ class DataFrame(NDFrame):
         return self.where(key)
 
     def query(self, expr, **kwargs):
-        local_dict = kwargs.get('local_dict', locals()).copy()
-        local_dict.update(dict(self.iteritems()))
-        kwargs.pop('local_dict', None)
-        kwargs['local_dict'] = local_dict
-        return self[_eval(expr, **kwargs)]
+        return self[_eval(expr, resolver=self, **kwargs)]
 
     def _slice(self, slobj, axis=0, raise_on_error=False):
         if axis == 0:
