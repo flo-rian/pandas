@@ -36,7 +36,7 @@ class Scope(object):
 
         self.resolvers = resolvers or []
         self.resolver_keys = set(reduce(operator.add, (list(o.keys()) for o in
-                                                       self.resolvers), set()))
+                                                       self.resolvers), []))
         self._global_resolvers = self.resolvers + [self.locals, self.globals]
         self._resolver = None
 
