@@ -2356,6 +2356,21 @@ class TestHDFStore(unittest.TestCase):
             expected = df.loc[:,df.columns-['A','B']]
             tm.assert_frame_equal(result, expected)
 
+    def test_invalid_filtering(self):
+
+        # can't use more than one filter (atm)
+
+        df = tm.makeTimeDataFrame()
+
+        with ensure_clean(self.path) as store:
+            store.put('df', df, table=True)
+
+            # not implemented
+            self.assertRaises(NotImplementedError, store.select, 'df', "columns=['A'] | columns=['B']")
+
+            # in theory we could deal with this
+            self.assertRaises(NotImplementedError, store.select, 'df', "columns=['A','B'] & columns=['C']")
+
     def test_string_select(self):
 
         # GH 2973
