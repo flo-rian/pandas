@@ -20,7 +20,7 @@ import pandas.core.common as com
 import pandas.core.format as fmt
 import pandas.core.datetools as datetools
 from pandas.core.api import (DataFrame, Index, Series, notnull, isnull,
-                             MultiIndex, DatetimeIndex, Timestamp, Period)
+                             MultiIndex, DatetimeIndex, Timestamp)
 from pandas import date_range
 import pandas as pd
 from pandas.io.parsers import read_csv
@@ -34,6 +34,7 @@ from pandas.util.testing import (assert_almost_equal,
                                  ensure_clean)
 from pandas.util import py3compat
 from pandas.util.compat import OrderedDict
+from pandas.computation.expr import Expr
 
 import pandas.util.testing as tm
 import pandas.lib as lib
@@ -7711,6 +7712,24 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
         expec = DataFrame([[nan, 2]])
         assert_frame_equal(res, expec)
 
+    def test_query(self):
+        # comparison
+        df = DataFrame(np.random.randn(10, 3), columns=['a', 'b', 'c'])
+        assert_frame_equal(df.query('a < b'), df[df.a < df.b])
+
+        # arith ops
+        assert_frame_equal(df.query('a + b > b * c'),
+                           df[df.a + df.b > df.b * df.c])
+
+        local_dict = dict(df.iteritems())
+        local_dict.update({'df': df})
+        self.assertRaises(NameError, df.query, 'a < d & b < f',
+                          local_dict=local_dict)
+
+        # make sure that it's not just because we didn't pass the locals in
+        self.assertRaises(AssertionError, self.assertRaises, NameError,
+                          df.query, 'a < b', local_dict=local_dict)
+
     #----------------------------------------------------------------------
     # Transposing
     def test_transpose(self):
@@ -7840,7 +7859,6 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
         the_diff = tf.diff(1)
         assert_series_equal(the_diff['A'],
                             tf['A'] - tf['A'].shift(1))
-
 
     def test_diff_mixed_dtype(self):
         df = DataFrame(np.random.randn(5, 3))
@@ -9748,7 +9766,6 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
         result = df3.get_dtype_counts()
         expected = Series({'float64' : 2, 'object' : 2})
         assert_series_equal(result, expected)
-
 
     def test_reset_index(self):
         stacked = self.frame.stack()[::2]

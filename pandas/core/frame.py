@@ -36,6 +36,9 @@ from pandas.core.internals import (BlockManager,
                                    create_block_manager_from_blocks)
 from pandas.core.series import Series, _radd_compat
 import pandas.computation.expressions as expressions
+from pandas.computation.eval import eval as _eval
+from pandas.computation.ops import is_term
+from pandas.computation.expr import Expr, Scope
 from pandas.compat.scipy import scoreatpercentile as _quantile
 from pandas.util.compat import OrderedDict
 from pandas.util import py3compat
@@ -2059,6 +2062,13 @@ class DataFrame(NDFrame):
         if key.values.dtype != np.bool_:
             raise ValueError('Must pass DataFrame with boolean values only')
         return self.where(key)
+
+    def query(self, expr, **kwargs):
+        local_dict = kwargs.get('local_dict', locals()).copy()
+        local_dict.update(dict(self.iteritems()))
+        kwargs.pop('local_dict', None)
+        kwargs['local_dict'] = local_dict
+        return self[_eval(expr, **kwargs)]
 
     def _slice(self, slobj, axis=0, raise_on_error=False):
         if axis == 0:
@@ -5519,7 +5529,8 @@ class DataFrame(NDFrame):
         """
         return self.mul(other, fill_value=1.)
 
-    def where(self, cond, other=NA, inplace=False, try_cast=False, raise_on_error=True):
+    def where(self, cond, other=NA, inplace=False, try_cast=False,
+              raise_on_error=True):
         """
         Return a DataFrame with the same shape as self and whose corresponding
         entries are from self where cond is True and otherwise are from other.
@@ -5591,6 +5602,7 @@ class DataFrame(NDFrame):
         wh: DataFrame
         """
         return self.where(~cond, NA)
+
 
 _EMPTY_SERIES = Series([])
 
