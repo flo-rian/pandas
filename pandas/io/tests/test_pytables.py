@@ -170,7 +170,9 @@ class TestHDFStore(unittest.TestCase):
             df['datetime2']  = datetime.datetime(2001,1,3,0,0)
             df.ix[3:6,['obj1']] = np.nan
             df = df.consolidate().convert_objects()
-            store['df'] = df
+
+            with tm.assert_produces_warning(expected_warning=PerformanceWarning):
+                store['df'] = df
 
             # make a random group in hdf space
             store._handle.createGroup(store._handle.root,'bah')
@@ -193,10 +195,9 @@ class TestHDFStore(unittest.TestCase):
             self.assert_('bar' not in store)
 
             # GH 2694
-            warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
-            store['node())'] = tm.makeDataFrame()
-            self.assert_('node())' in store)
-            warnings.filterwarnings('always', category=tables.NaturalNameWarning)
+            with tm.assert_produces_warning(expected_warning=tables.NaturalNameWarning):
+                store['node())'] = tm.makeDataFrame()
+                self.assert_('node())' in store)
 
     def test_versioning(self):
 
@@ -378,11 +379,10 @@ class TestHDFStore(unittest.TestCase):
 
         with ensure_clean(self.path) as store:
             _maybe_remove(store, 'df')
-            warnings.filterwarnings('ignore', category=PerformanceWarning)
-            store.put('df',df)
-            expected = store.get('df')
-            tm.assert_frame_equal(expected,df)
-            warnings.filterwarnings('always', category=PerformanceWarning)
+            with tm.assert_produces_warning(expected_warning=PerformanceWarning):
+                store.put('df',df)
+                expected = store.get('df')
+                tm.assert_frame_equal(expected,df)
 
     def test_append(self):
 
@@ -404,12 +404,11 @@ class TestHDFStore(unittest.TestCase):
             tm.assert_frame_equal(store['df3'], df)
 
             # this is allowed by almost always don't want to do it
-            warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
-            _maybe_remove(store, '/df3 foo')
-            store.append('/df3 foo', df[:10])
-            store.append('/df3 foo', df[10:])
-            tm.assert_frame_equal(store['df3 foo'], df)
-            warnings.filterwarnings('always', category=tables.NaturalNameWarning)
+            with tm.assert_produces_warning(expected_warning=tables.NaturalNameWarning):
+                _maybe_remove(store, '/df3 foo')
+                store.append('/df3 foo', df[:10])
+                store.append('/df3 foo', df[10:])
+                tm.assert_frame_equal(store['df3 foo'], df)
 
             # panel
             wp = tm.makePanel()
@@ -1582,10 +1581,13 @@ class TestHDFStore(unittest.TestCase):
 
             # back compat invalid terms
             terms = [
-                dict(field='major_axis', op='>', value='20121114')
+                dict(field='major_axis', op='>', value='20121114'),
+                [ dict(field='major_axis', op='>', value='20121114') ],
+                [ "minor_axis=['A','B']", dict(field='major_axis', op='>', value='20121114') ]
                 ]
             for t in terms:
-                self.assertRaises(TypeError, Term.__init__, t)
+                with tm.assert_produces_warning(expected_warning=DeprecationWarning):
+                    Term(t)
 
             # valid terms
             terms = [
@@ -1696,9 +1698,8 @@ class TestHDFStore(unittest.TestCase):
         idx = [(0., 1.), (2., 3.), (4., 5.)]
         data = np.random.randn(30).reshape((3, 10))
         DF = DataFrame(data, index=idx, columns=col)
-        warnings.filterwarnings('ignore', category=PerformanceWarning)
-        self._check_roundtrip(DF, tm.assert_frame_equal)
-        warnings.filterwarnings('always', category=PerformanceWarning)
+        with tm.assert_produces_warning(expected_warning=PerformanceWarning):
+            self._check_roundtrip(DF, tm.assert_frame_equal)
 
     def test_index_types(self):
 
@@ -1706,26 +1707,25 @@ class TestHDFStore(unittest.TestCase):
 
         func = lambda l, r: tm.assert_series_equal(l, r, True, True, True)
 
-        warnings.filterwarnings('ignore', category=PerformanceWarning)
-        ser = Series(values, [0, 'y'])
-        self._check_roundtrip(ser, func)
-        warnings.filterwarnings('always', category=PerformanceWarning)
+        with tm.assert_produces_warning(expected_warning=PerformanceWarning):
+            ser = Series(values, [0, 'y'])
+            self._check_roundtrip(ser, func)
 
-        ser = Series(values, [datetime.datetime.today(), 0])
-        self._check_roundtrip(ser, func)
+        with tm.assert_produces_warning(expected_warning=PerformanceWarning):
+            ser = Series(values, [datetime.datetime.today(), 0])
+            self._check_roundtrip(ser, func)
 
-        ser = Series(values, ['y', 0])
-        self._check_roundtrip(ser, func)
+        with tm.assert_produces_warning(expected_warning=PerformanceWarning):
+            ser = Series(values, ['y', 0])
+            self._check_roundtrip(ser, func)
 
-        warnings.filterwarnings('ignore', category=PerformanceWarning)
-        ser = Series(values, [datetime.date.today(), 'a'])
-        self._check_roundtrip(ser, func)
-        warnings.filterwarnings('always', category=PerformanceWarning)
+        with tm.assert_produces_warning(expected_warning=PerformanceWarning):
+            ser = Series(values, [datetime.date.today(), 'a'])
+            self._check_roundtrip(ser, func)
 
-        warnings.filterwarnings('ignore', category=PerformanceWarning)
-        ser = Series(values, [1.23, 'b'])
-        self._check_roundtrip(ser, func)
-        warnings.filterwarnings('always', category=PerformanceWarning)
+        with tm.assert_produces_warning(expected_warning=PerformanceWarning):
+            ser = Series(values, [1.23, 'b'])
+            self._check_roundtrip(ser, func)
 
         ser = Series(values, [1, 1.53])
         self._check_roundtrip(ser, func)
@@ -1734,7 +1734,7 @@ class TestHDFStore(unittest.TestCase):
         self._check_roundtrip(ser, func)
 
         ser = Series(values, [datetime.datetime(
-                    2012, 1, 1), datetime.datetime(2012, 1, 2)])
+            2012, 1, 1), datetime.datetime(2012, 1, 2)])
         self._check_roundtrip(ser, func)
 
     def test_timeseries_preepoch(self):
@@ -2223,11 +2223,10 @@ class TestHDFStore(unittest.TestCase):
 
 
             # try to append a table with a different frequency
-            warnings.filterwarnings('ignore', category=AttributeConflictWarning)
-            df2 = DataFrame(dict(A = Series(xrange(3),
-                                            index=date_range('2002-1-1',periods=3,freq='D'))))
-            store.append('data',df2)
-            warnings.filterwarnings('always', category=AttributeConflictWarning)
+            with tm.assert_produces_warning(expected_warning=AttributeConflictWarning):
+                df2 = DataFrame(dict(A = Series(xrange(3),
+                                                index=date_range('2002-1-1',periods=3,freq='D'))))
+                store.append('data',df2)
 
             self.assert_(store.get_storer('data').info['index']['freq'] is None)
 
@@ -2243,26 +2242,24 @@ class TestHDFStore(unittest.TestCase):
 
         with tm.ensure_clean(self.path) as path:
 
-            warnings.filterwarnings('ignore', category=AttributeConflictWarning)
+            with tm.assert_produces_warning(expected_warning=AttributeConflictWarning):
 
-            df  = DataFrame(dict(A = Series(xrange(3), index=date_range('2000-1-1',periods=3,freq='H'))))
-            df.to_hdf(path,'data',mode='w',append=True)
-            df2 = DataFrame(dict(A = Series(xrange(3), index=date_range('2002-1-1',periods=3,freq='D'))))
-            df2.to_hdf(path,'data',append=True)
+                df  = DataFrame(dict(A = Series(xrange(3), index=date_range('2000-1-1',periods=3,freq='H'))))
+                df.to_hdf(path,'data',mode='w',append=True)
+                df2 = DataFrame(dict(A = Series(xrange(3), index=date_range('2002-1-1',periods=3,freq='D'))))
+                df2.to_hdf(path,'data',append=True)
 
-            idx = date_range('2000-1-1',periods=3,freq='H')
-            idx.name = 'foo'
-            df  = DataFrame(dict(A = Series(xrange(3), index=idx)))
-            df.to_hdf(path,'data',mode='w',append=True)
-            self.assert_(read_hdf(path,'data').index.name == 'foo')
+                idx = date_range('2000-1-1',periods=3,freq='H')
+                idx.name = 'foo'
+                df  = DataFrame(dict(A = Series(xrange(3), index=idx)))
+                df.to_hdf(path,'data',mode='w',append=True)
+                self.assert_(read_hdf(path,'data').index.name == 'foo')
 
-            idx2 = date_range('2001-1-1',periods=3,freq='H')
-            idx2.name = 'bar'
-            df2 = DataFrame(dict(A = Series(xrange(3), index=idx2)))
-            df2.to_hdf(path,'data',append=True)
-            self.assert_(read_hdf(path,'data').index.name is None)
-
-            warnings.filterwarnings('always', category=AttributeConflictWarning)
+                idx2 = date_range('2001-1-1',periods=3,freq='H')
+                idx2.name = 'bar'
+                df2 = DataFrame(dict(A = Series(xrange(3), index=idx2)))
+                df2.to_hdf(path,'data',append=True)
+                self.assert_(read_hdf(path,'data').index.name is None)
 
     def test_panel_select(self):
 
@@ -2689,13 +2686,12 @@ class TestHDFStore(unittest.TestCase):
             store.select('df2', typ='legacy_frame')
 
             # old version warning
-            warnings.filterwarnings('ignore', category=IncompatibilityWarning)
-            self.assertRaises(
-                Exception, store.select, 'wp1', Term('minor_axis=B'))
+            with tm.assert_produces_warning(expected_warning=IncompatibilityWarning):
+                self.assertRaises(
+                    Exception, store.select, 'wp1', Term('minor_axis=B'))
 
-            df2 = store.select('df2')
-            store.select('df2', Term('index>df2.index[2]'))
-            warnings.filterwarnings('always', category=IncompatibilityWarning)
+                df2 = store.select('df2')
+                store.select('df2', Term('index>df2.index[2]'))
 
         finally:
             safe_close(store)
@@ -2861,10 +2857,9 @@ class TestHDFStore(unittest.TestCase):
     def test_unicode_index(self):
 
         unicode_values = [u'\u03c3', u'\u03c3\u03c3']
-        warnings.filterwarnings('ignore', category=PerformanceWarning)
-        s = Series(np.random.randn(len(unicode_values)), unicode_values)
-        self._check_roundtrip(s, tm.assert_series_equal)
-        warnings.filterwarnings('always', category=PerformanceWarning)
+        with tm.assert_produces_warning(expected_warning=PerformanceWarning):
+            s = Series(np.random.randn(len(unicode_values)), unicode_values)
+            self._check_roundtrip(s, tm.assert_series_equal)
 
     def test_store_datetime_mixed(self):
 

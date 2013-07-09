@@ -2,6 +2,7 @@
 
 import ast
 import time
+import warnings
 
 from functools import partial
 from datetime import datetime
@@ -474,22 +475,7 @@ class Expr(expr.Expr):
                  encoding=None, scope_level=None):
 
         # try to be back compat
-        if op is not None:
-            if not isinstance(where, basestring):
-                raise TypeError(
-                    "where must be passed as a string if op/value are passed")
-            if isinstance(op, Expr):
-                raise TypeError("invalid op passed, must be a string")
-            where = "{0}{1}".format(where, op)
-            if value is not None:
-                if isinstance(value, Expr):
-                    raise TypeError("invalid value passed, must be a string")
-                where = "{0}{1}".format(where, value)
-
-            import warnings
-            warnings.warn("passing multiple values to Expr is deprecated "
-                          "pass the where as a single string",
-                          DeprecationWarning)
+        where = self.parse_back_compat(where, op, value)
 
         self.encoding = encoding
         self.condition = None
@@ -509,6 +495,8 @@ class Expr(expr.Expr):
             for w in where:
                 if isinstance(w, Expr):
                     lcls.update(w.env.locals)
+                else:
+                    w = self.parse_back_compat(w)
 
             where = ' & ' .join(["(%s)" % w for w in where])
 
@@ -522,6 +510,39 @@ class Expr(expr.Expr):
             self._visitor = ExprVisitor(self.env, queryables=queryables,
                                         encoding=encoding)
             self.terms = self.parse()
+
+
+    def parse_back_compat(self, w, op=None, value=None):
+        """ allow backward compatibility for passed arguments """
+
+        if isinstance(w, dict):
+            w, op, value = w.get('field'), w.get('op'), w.get('value')
+            if not isinstance(w, basestring):
+                raise TypeError(
+                    "where must be passed as a string if op/value are passed")
+            warnings.warn("passing a dict to Expr is deprecated, "
+                          "pass the where as a single string",
+                          DeprecationWarning)
+
+        if op is not None:
+            if not isinstance(w, basestring):
+                raise TypeError(
+                    "where must be passed as a string if op/value are passed")
+
+            if isinstance(op, Expr):
+                raise TypeError("invalid op passed, must be a string")
+            w = "{0}{1}".format(w, op)
+            if value is not None:
+                if isinstance(value, Expr):
+                    raise TypeError("invalid value passed, must be a string")
+                w = "{0}{1}".format(w, value)
+
+            warnings.warn("passing multiple values to Expr is deprecated, "
+                          "pass the where as a single string",
+                          DeprecationWarning)
+
+        return w
+
 
     def __unicode__(self):
         if self.terms is not None:
