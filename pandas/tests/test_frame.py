@@ -7713,6 +7713,10 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
         assert_frame_equal(res, expec)
 
     def test_query(self):
+        try:
+            import numexpr as ne
+        except ImportError:
+            raise nose.SkipTest
         # comparison
         df = DataFrame(np.random.randn(10, 3), columns=['a', 'b', 'c'])
         assert_frame_equal(df.query('a < b'), df[df.a < df.b])
