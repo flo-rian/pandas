@@ -11,7 +11,7 @@ import numpy as np
 import pandas.core.common as com
 import pandas.lib as lib
 from pandas.computation import expr, ops
-from pandas.computation.ops import is_term, Value
+from pandas.computation.ops import is_term, Constant
 from pandas.computation.expr import BaseExprVisitor, ExprParserError
 from pandas import Index
 from pandas.core.common import is_list_like
@@ -373,7 +373,7 @@ class ExprVisitor(BaseExprVisitor):
         if node.kwargs is not None:
             keywords.update(self.visit(node.kwargs).value)
 
-        return Value(res(*args, **keywords), self.env)
+        return Constant(res(*args, **keywords), self.env)
 
     def visit_Compare(self, node, **kwargs):
         ops = node.ops
@@ -390,14 +390,14 @@ class ExprVisitor(BaseExprVisitor):
         if isinstance(node.op, ast.Not):
             return UnaryOp(node.op, self.visit(node.operand))
         elif isinstance(node.op, ast.USub):
-            return Value(-self.visit(node.operand).value, self.env)
+            return Constant(-self.visit(node.operand).value, self.env)
         self.not_implemented("{0} unary operations".format(node.op))
 
     def visit_Str(self, node, **kwargs):
-        return Value(node.s, self.env)
+        return Constant(node.s, self.env)
 
     def visit_List(self, node, **kwargs):
-        return Value([self.visit(e).value for e in node.elts], self.env)
+        return Constant([self.visit(e).value for e in node.elts], self.env)
 
     def visit_Index(self, node, **kwargs):
         """ df.index[4] """
@@ -408,7 +408,7 @@ class ExprVisitor(BaseExprVisitor):
         value = self.visit(node.value)
         slobj = self.visit(node.slice)
 
-        return Value(value[slobj], self.env)
+        return Constant(value[slobj], self.env)
 
     def visit_Slice(self, node, **kwargs):
         """ df.index[slice(4,6)] """

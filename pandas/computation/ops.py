@@ -85,17 +85,8 @@ class Constant(Term):
     def __init__(self, value, env):
         super(Constant, self).__init__(value, env)
 
-
-class Value(Term):
-    """ a resolved value """
-    def __init__(self, value, env, name=None):
-        self.name = name
-        self.env = env
-        self.value = value
-        self.type = type(self.value)
-
-    def __unicode__(self):
-        return com.pprint_thing(self.value)
+    def _resolve_name(self):
+        return self.name
 
 
 def _print_operand(opr):
