@@ -171,8 +171,7 @@ class TestHDFStore(unittest.TestCase):
             df.ix[3:6,['obj1']] = np.nan
             df = df.consolidate().convert_objects()
 
-            with tm.assert_produces_warning(expected_warning=PerformanceWarning):
-                store['df'] = df
+            store['df'] = df
 
             # make a random group in hdf space
             store._handle.createGroup(store._handle.root,'bah')
@@ -197,7 +196,8 @@ class TestHDFStore(unittest.TestCase):
             # GH 2694
             with tm.assert_produces_warning(expected_warning=tables.NaturalNameWarning):
                 store['node())'] = tm.makeDataFrame()
-                self.assert_('node())' in store)
+
+            self.assert_('node())' in store)
 
     def test_versioning(self):
 
@@ -378,11 +378,10 @@ class TestHDFStore(unittest.TestCase):
         df = df.consolidate().convert_objects()
 
         with ensure_clean(self.path) as store:
-            _maybe_remove(store, 'df')
-            with tm.assert_produces_warning(expected_warning=PerformanceWarning):
-                store.put('df',df)
-                expected = store.get('df')
-                tm.assert_frame_equal(expected,df)
+
+            store.put('df',df)
+            expected = store.get('df')
+            tm.assert_frame_equal(expected,df)
 
     def test_append(self):
 
@@ -2249,17 +2248,20 @@ class TestHDFStore(unittest.TestCase):
                 df2 = DataFrame(dict(A = Series(xrange(3), index=date_range('2002-1-1',periods=3,freq='D'))))
                 df2.to_hdf(path,'data',append=True)
 
-                idx = date_range('2000-1-1',periods=3,freq='H')
-                idx.name = 'foo'
-                df  = DataFrame(dict(A = Series(xrange(3), index=idx)))
-                df.to_hdf(path,'data',mode='w',append=True)
-                self.assert_(read_hdf(path,'data').index.name == 'foo')
+            idx = date_range('2000-1-1',periods=3,freq='H')
+            idx.name = 'foo'
+            df  = DataFrame(dict(A = Series(xrange(3), index=idx)))
+            df.to_hdf(path,'data',mode='w',append=True)
+            self.assert_(read_hdf(path,'data').index.name == 'foo')
+
+            with tm.assert_produces_warning(expected_warning=AttributeConflictWarning):
 
                 idx2 = date_range('2001-1-1',periods=3,freq='H')
                 idx2.name = 'bar'
                 df2 = DataFrame(dict(A = Series(xrange(3), index=idx2)))
                 df2.to_hdf(path,'data',append=True)
-                self.assert_(read_hdf(path,'data').index.name is None)
+
+            self.assert_(read_hdf(path,'data').index.name is None)
 
     def test_panel_select(self):
 
@@ -2857,9 +2859,13 @@ class TestHDFStore(unittest.TestCase):
     def test_unicode_index(self):
 
         unicode_values = [u'\u03c3', u'\u03c3\u03c3']
-        with tm.assert_produces_warning(expected_warning=PerformanceWarning):
-            s = Series(np.random.randn(len(unicode_values)), unicode_values)
+        s = Series(np.random.randn(len(unicode_values)), unicode_values)
+
+        if py3compat.PY3:
             self._check_roundtrip(s, tm.assert_series_equal)
+        else:
+            with tm.assert_produces_warning(expected_warning=PerformanceWarning):
+                self._check_roundtrip(s, tm.assert_series_equal)
 
     def test_store_datetime_mixed(self):
 
