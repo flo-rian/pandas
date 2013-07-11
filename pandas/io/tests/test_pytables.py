@@ -1534,14 +1534,16 @@ class TestHDFStore(unittest.TestCase):
             result = store.select('wp4')
             tm.assert_panel_equal(result, wp)
 
-    def test_terms(self):
+    def test_invalid_terms(self):
 
         with ensure_clean(self.path) as store:
 
+            df = tm.makeTimeDataFrame()
+            df['string'] = 'foo'
+            df.ix[0:4,'string'] = 'bar'
             wp = tm.makePanel()
-            p4d = tm.makePanel4D()
+            store.append('df', df, data_columns=['string'])
             store.put('wp', wp, table=True)
-            store.put('p4d', p4d, table=True)
 
             # some invalid terms
             self.assertRaises(NameError, store.select, 'wp', "minor=['A', 'B']")
@@ -1556,6 +1558,20 @@ class TestHDFStore(unittest.TestCase):
                 Term('index', '>', 5)
 
             self.assertRaises(TypeError, Term)
+
+            # more invalid
+            self.assertRaises(ValueError,  store.select, 'df','df.index[3]')
+            self.assertRaises(SyntaxError, store.select, 'df','index>')
+            self.assertRaises(ValueError,  store.select, 'wp', "major_axis<'20000108' & minor_axis['A', 'B']")
+
+    def test_terms(self):
+
+        with ensure_clean(self.path) as store:
+
+            wp = tm.makePanel()
+            p4d = tm.makePanel4D()
+            store.put('wp', wp, table=True)
+            store.put('p4d', p4d, table=True)
 
             # panel
             result = store.select('wp', [Term(

@@ -434,7 +434,10 @@ class ExprVisitor(BaseExprVisitor):
         value = self.visit(node.value)
         slobj = self.visit(node.slice)
 
-        return Constant(value[slobj], self.env)
+        try:
+            return Constant(value[slobj], self.env)
+        except TypeError:
+            raise ValueError("cannot subscript [{0}] with [{1}]".format(value,slobj))
 
     def visit_Slice(self, node, **kwargs):
         """ df.index[slice(4,6)] """
@@ -522,8 +525,11 @@ class Expr(expr.Expr):
             self.env.queryables.update(queryables)
             self._visitor = ExprVisitor(self.env, queryables=queryables,
                                         encoding=encoding)
-            self.terms = self.parse()
-
+            try:
+                self.terms = self.parse()
+            except (SyntaxError), detail:
+                raise SyntaxError("cannot process expression [{0}] for invalid syntax]".format(
+                    self.expr))
 
     def parse_back_compat(self, w, op=None, value=None):
         """ allow backward compatibility for passed arguments """
@@ -569,12 +575,12 @@ class Expr(expr.Expr):
             self.condition = self.terms.prune(ConditionBinOp)
         except AttributeError:
             raise ValueError(
-                "cannot process node for the condition [{0}]".format(self))
+                "cannot process expression [{0}], [{1}] is not a valid condition".format(self.expr,self))
         try:
             self.filter = self.terms.prune(FilterBinOp)
         except AttributeError:
             raise ValueError(
-                "cannot process node for the filter [{0}]".format(self))
+                "cannot process expression [{0}], [{1}] is not a valid filter".format(self.expr,self))
 
         return self.condition, self.filter
 
