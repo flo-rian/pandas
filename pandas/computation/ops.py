@@ -96,7 +96,7 @@ def _print_operand(opr):
 class Op(StringMixin):
     """Hold an operator of unknown arity
     """
-    def __init__(self, op, operands):
+    def __init__(self, op, operands, *args, **kwargs):
         self.op = op
         self.operands = operands
 
@@ -119,8 +119,8 @@ class Op(StringMixin):
         return np.result_type(*(term.type for term in flatten(self)))
 
 
-_cmp_ops_syms = '>', '<', '>=', '<=', '==', '!=', '='
-_cmp_ops_funcs = op.gt, op.lt, op.ge, op.le, op.eq, op.ne, op.eq
+_cmp_ops_syms = '>', '<', '>=', '<=', '==', '!='
+_cmp_ops_funcs = op.gt, op.lt, op.ge, op.le, op.eq, op.ne
 _cmp_ops_dict = dict(zip(_cmp_ops_syms, _cmp_ops_funcs))
 
 _bool_ops_syms = '&', '|'
@@ -170,7 +170,7 @@ class BinOp(Op):
     left : str or Op
     right : str or Op
     """
-    def __init__(self, op, lhs, rhs):
+    def __init__(self, op, lhs, rhs, **kwargs):
         super(BinOp, self).__init__(op, (lhs, rhs))
         self.lhs = lhs
         self.rhs = rhs
@@ -213,8 +213,8 @@ class BinOp(Op):
 
 
 class Mod(BinOp):
-    def __init__(self, lhs, rhs):
-        super(Mod, self).__init__('%', lhs, rhs)
+    def __init__(self, lhs, rhs, *args, **kwargs):
+        super(Mod, self).__init__('%', lhs, rhs, *args, **kwargs)
         _cast_inplace(self.operands, np.float_)
 
 

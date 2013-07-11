@@ -3,6 +3,7 @@
 import unittest
 import itertools
 from itertools import product
+import ast
 
 import nose
 from nose.tools import assert_raises, assert_tuple_equal
@@ -19,8 +20,10 @@ from pandas import DataFrame, Series
 from pandas.util.testing import makeCustomDataframe as mkdf
 from pandas.computation.engines import _engines, _reconstruct_object
 from pandas.computation.align import _align_core
+from pandas.computation.expr import NumExprVisitor, PythonExprVisitor
 from pandas.computation.ops import _binary_ops_dict, _unary_ops_dict, Term
 import pandas.computation.expr as expr
+from pandas.computation import pytables
 from pandas.computation.expressions import _USE_NUMEXPR
 from pandas.computation.eval import Scope
 from pandas.util.testing import assert_frame_equal, randbool
@@ -643,6 +646,24 @@ def check_or_fails(engine):
 def test_or_fails():
     for engine in _engines:
         check_or_fails(engine)
+
+
+_visitors = {'numexpr': NumExprVisitor, 'python': PythonExprVisitor,
+             'pytables': pytables.ExprVisitor}
+
+
+# make sure the disallowed decorator is doing what i think it is
+def check_disallowed_nodes(engine):
+    VisitorClass = _visitors[engine]
+    uns_ops = VisitorClass.unsupported_nodes
+    inst = VisitorClass('x + 1')
+    for ops in uns_ops:
+        assert_raises(NotImplementedError, getattr(inst, ops), inst, ast.AST())
+
+
+def test_disallowed_nodes():
+    for engine in ('pytables', 'numexpr', 'python'):
+        check_disallowed_nodes(engine)
 
 
 if __name__ == '__main__':

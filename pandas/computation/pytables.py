@@ -1,9 +1,8 @@
 """ manage PyTables query interface via Expressions """
 
-import ast
 import time
+import itertools
 import warnings
-
 from functools import partial
 from datetime import datetime
 
@@ -13,7 +12,7 @@ import pandas.core.common as com
 import pandas.lib as lib
 from pandas.computation import expr, ops
 from pandas.computation.ops import is_term, Constant
-from pandas.computation.expr import BaseExprVisitor, ExprParserError
+from pandas.computation.expr import BaseExprVisitor, add_ops
 from pandas import Index
 from pandas.core.common import is_list_like
 
@@ -249,6 +248,7 @@ class FilterBinOp(BinOp):
         else:
             return lambda axis, vals: axis.isin(vals)
 
+
 class JointFilterBinOp(FilterBinOp):
 
     def format(self):
@@ -336,127 +336,29 @@ class UnaryOp(ops.UnaryOp):
 
         return None
 
+
+
+_op_classes = {'unary': UnaryOp}
+
+
+@add_ops(_op_classes)
 class ExprVisitor(BaseExprVisitor):
-    bin_ops = '>', '<', '>=', '<=', '==', '!=', '&', '|'
     unary_ops = '-', '~'
+    unary_op_nodes = 'USub', 'Invert'
+    unary_op_nodes_map = dict(itertools.izip(unary_ops, unary_op_nodes))
 
     def __init__(self, env, **kwargs):
-        for bin_op in self.bin_ops:
-            setattr(self, 'visit_{0}'.format(self.bin_op_nodes_map[bin_op]),
-                    lambda node, bin_op=bin_op: partial(BinOp, bin_op, **kwargs))
-
-        for unary_op in self.unary_ops:
-            setattr(self,
-                    'visit_{0}'.format(self.unary_op_nodes_map[unary_op]),
-                    lambda node, unary_op=unary_op: partial(UnaryOp, unary_op))
-        self.env = env
-
-    def visit_Module(self, node, **kwargs):
-        if len(node.body) != 1:
-            raise ExprParserError('only a single expression is allowed')
-
-        body = node.body[0]
-        return self.visit(body)
-
-    def visit_Attribute(self, node, **kwargs):
-        attr = node.attr
-        value = node.value
-
-        ctx = node.ctx.__class__
-        if ctx == ast.Load:
-            # resolve the value
-            return getattr(self.visit(value).value, attr)
-        raise ValueError("Invalid Attribute context {0}".format(ctx.__name__))
-
-    def visit_Call(self, node, **kwargs):
-
-        # this can happen with: datetime.datetime
-        if isinstance(node.func, ast.Attribute):
-            res = self.visit_Attribute(node.func)
-        elif not isinstance(node.func, ast.Name):
-            raise TypeError("Only named functions are supported")
-        else:
-            res = self.visit(node.func)
-
-        if res is None:
-            raise ValueError("Invalid function call {0}".format(node.func.id))
-        if hasattr(res, 'value'):
-            res = res.value
-
-        args = [self.visit(targ).value for targ in node.args]
-        if node.starargs is not None:
-            args = args + self.visit(node.starargs).value
-
-        keywords = {}
-        for key in node.keywords:
-            if not isinstance(key, ast.keyword):
-                raise ValueError(
-                    "keyword error in function call '{0}'".format(node.func.id))
-            keywords[key.arg] = self.visit(key.value).value
-        if node.kwargs is not None:
-            keywords.update(self.visit(node.kwargs).value)
-
-        return Constant(res(*args, **keywords), self.env)
-
-    def visit_Compare(self, node, **kwargs):
-        ops = node.ops
-        comps = node.comparators
-        for op, comp in zip(ops, comps):
-            node = self.visit(op)(
-                self.visit(node.left, side='left'), self.visit(comp, side='right'))
-        return node
+        super(ExprVisitor, self).__init__(env)
+        for bin_op in self.binary_ops:
+            setattr(self, 'visit_{0}'.format(self.binary_op_nodes_map[bin_op]),
+                    lambda node, bin_op=bin_op: partial(BinOp, bin_op,
+                                                        **kwargs))
 
     def visit_Name(self, node, side=None, **kwargs):
-        return Term(node.id, self.env, side=side)
+        return Term(node.id, self.env, side=side, **kwargs)
 
-    def visit_UnaryOp(self, node, **kwargs):
-        if isinstance(node.op, (ast.Not,ast.Invert)):
-            return UnaryOp('~', self.visit(node.operand))
-        elif isinstance(node.op, ast.USub):
-            return Constant(-self.visit(node.operand).value, self.env)
-        self.not_implemented("{0} unary operations".format(node.op))
-
-    def visit_Str(self, node, **kwargs):
-        return Constant(node.s, self.env)
-
-    def visit_List(self, node, **kwargs):
-        return Constant([self.visit(e).value for e in node.elts], self.env)
-
-    def visit_Tuple(self, node, **kwargs):
-        return Constant([self.visit(e).value for e in node.elts], self.env)
-
-    def visit_Index(self, node, **kwargs):
-        """ df.index[4] """
-        return self.visit(node.value).value
-
-    def visit_Subscript(self, node, **kwargs):
-        """ df.index[4:6] """
-        value = self.visit(node.value)
-        slobj = self.visit(node.slice)
-
-        try:
-            return Constant(value[slobj], self.env)
-        except TypeError:
-            raise ValueError("cannot subscript [{0}] with [{1}]".format(value,slobj))
-
-    def visit_Slice(self, node, **kwargs):
-        """ df.index[slice(4,6)] """
-        lower = node.lower
-        if lower is not None:
-            lower = self.visit(lower).value
-        upper = node.upper
-        if upper is not None:
-            upper = self.visit(upper).value
-        step = node.step
-        if step is not None:
-            step = self.visit(step).value
-
-        return slice(lower, upper, step)
-
-    def visit_Assign(self, node, **kwargs):
-        cmpr = ast.Compare(ops=[ast.Eq()], left=node.targets[0],
-                           comparators=[node.value])
-        return self.visit(cmpr)
+    def visit_USub(self, node, **kwargs):
+        return Constant(-self.visit(node.operand).value, self.env)
 
 
 class Expr(expr.Expr):
@@ -521,15 +423,10 @@ class Expr(expr.Expr):
         self.env.update(scope_level)
 
         if queryables is not None:
-
             self.env.queryables.update(queryables)
             self._visitor = ExprVisitor(self.env, queryables=queryables,
                                         encoding=encoding)
-            try:
-                self.terms = self.parse()
-            except (SyntaxError), detail:
-                raise SyntaxError("cannot process expression [{0}] for invalid syntax]".format(
-                    self.expr))
+            self.terms = self.parse()
 
     def parse_back_compat(self, w, op=None, value=None):
         """ allow backward compatibility for passed arguments """
@@ -561,7 +458,6 @@ class Expr(expr.Expr):
                           DeprecationWarning)
 
         return w
-
 
     def __unicode__(self):
         if self.terms is not None:
