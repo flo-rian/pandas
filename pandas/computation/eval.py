@@ -24,7 +24,7 @@ def eval(expr, engine='numexpr', truediv=True, local_dict=None,
     expr : string or Expr object
         The expression to evaluate. This can be either a string or an ``Expr``
         object.
-    engine : string, optional, default 'numexpr', {'python', 'numexpr', 'pytables'}
+    engine : string, optional, default 'numexpr', {'python', 'numexpr' }
         The engine used to evaluate the expression. Supported engines are
 
         - 'numexpr': This default engine evaluates pandas objects using numexpr
@@ -32,8 +32,6 @@ def eval(expr, engine='numexpr', truediv=True, local_dict=None,
                      frames.
         - 'python': Performs operations as if you had eval'd in top level
                     python
-        - 'pytables': Engine used for evaluating expressions for selection of
-                      objects from PyTables HDF5 tables.
 
     truediv : bool, optional, default True
         Whether to use true division, like in Python >= 3
@@ -77,7 +75,6 @@ def eval(expr, engine='numexpr', truediv=True, local_dict=None,
 
     # sanity check for a number
     # TODO: eventually take out
-    # TODO: pytables engine will probably need a string check
     if np.isscalar(ret):
         if not isinstance(ret, (np.number, np.bool_, numbers.Number)):
             raise TypeError('scalar result must be numeric or bool, passed '

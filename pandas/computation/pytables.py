@@ -422,6 +422,9 @@ class ExprVisitor(BaseExprVisitor):
     def visit_List(self, node, **kwargs):
         return Constant([self.visit(e).value for e in node.elts], self.env)
 
+    def visit_Tuple(self, node, **kwargs):
+        return Constant([self.visit(e).value for e in node.elts], self.env)
+
     def visit_Index(self, node, **kwargs):
         """ df.index[4] """
         return self.visit(node.value).value
@@ -469,6 +472,16 @@ class Expr(expr.Expr):
 
     Examples
     --------
+
+    'index>=date'
+    "columns=['A', 'D']"
+    'columns=A'
+    'columns==A'
+    "~(columns=['A','B'])"
+    'index>df.index[3] & string="bar"'
+    '(index>df.index[3] & index<=df.index[6]) | string="bar"'
+    "ts>=Timestamp('2012-02-01')"
+    "major_axis>=20130101"
     """
 
     def __init__(self, where, op=None, value=None, queryables=None,

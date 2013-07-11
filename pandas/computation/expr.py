@@ -236,6 +236,9 @@ class Expr(StringMixin):
     def __unicode__(self):
         return unicode(self.terms)
 
+    def __len__(self):
+        return len(self.expr)
+
     def parse(self):
         """return a Termset"""
         return self._visitor.visit(self.expr)
