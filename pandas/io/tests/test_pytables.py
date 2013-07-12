@@ -19,6 +19,7 @@ from pandas.tests.test_series import assert_series_equal
 from pandas.tests.test_frame import assert_frame_equal
 from pandas import concat, Timestamp
 from pandas.util import py3compat
+from pandas.util.testing import assert_produces_warning
 
 try:
     import tables
@@ -171,7 +172,9 @@ class TestHDFStore(unittest.TestCase):
             df.ix[3:6,['obj1']] = np.nan
             df = df.consolidate().convert_objects()
 
-            store['df'] = df
+            with assert_produces_warning([PendingDeprecationWarning,
+                                          PerformanceWarning]):
+                store['df'] = df
 
             # make a random group in hdf space
             store._handle.createGroup(store._handle.root,'bah')
@@ -378,8 +381,9 @@ class TestHDFStore(unittest.TestCase):
         df = df.consolidate().convert_objects()
 
         with ensure_clean(self.path) as store:
-
-            store.put('df',df)
+            with assert_produces_warning([PendingDeprecationWarning,
+                                          PerformanceWarning]):
+                store.put('df',df)
             expected = store.get('df')
             tm.assert_frame_equal(expected,df)
 
