@@ -7,7 +7,7 @@ import ast
 
 import nose
 from nose.tools import assert_raises, assert_tuple_equal
-from nose.tools import assert_true, assert_false
+from nose.tools import assert_true, assert_false, assert_equal
 
 from numpy.random import randn, rand
 import numpy as np
@@ -664,6 +664,28 @@ def check_disallowed_nodes(engine):
 def test_disallowed_nodes():
     for engine in ('pytables', 'numexpr', 'python'):
         check_disallowed_nodes(engine)
+
+
+def check_simple_ops(engine):
+    ops = '+', '*', '/', '-', '%', '**'
+
+    for op in ops:
+        expec = _eval_single_bin(1, op, 1, engine_has_neg_frac(engine))
+        x = pd.eval('1 {0} 1'.format(op), engine=engine)
+        assert_equal(x, expec)
+
+        expec = _eval_single_bin(x, op, 1, engine_has_neg_frac(engine))
+        y = pd.eval('x {0} 1'.format(op), engine=engine)
+        assert_equal(y, expec)
+
+        expec = _eval_single_bin(1, op, x + 1, engine_has_neg_frac(engine))
+        y = pd.eval('1 {0} (x + 1)'.format(op), engine=engine)
+        assert_equal(y, expec)
+
+
+def test_simple_ops():
+    for engine in _engines:
+        check_simple_ops(engine)
 
 
 if __name__ == '__main__':

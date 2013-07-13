@@ -162,16 +162,10 @@ def _filter_terms(flat):
     return names, literals
 
 
-def _align(terms, env):
-
-    # flatten the parse tree (a nested list)
+def _align(terms):
+    """Align a set of terms"""
+    # flatten the parse tree (a nested list, really)
     terms = list(flatten(terms))
-
-    # separate names and literals
-    names, literals = _filter_terms(terms)
-
-    if not names:  # only literals so just promote to a common type
-        return np.result_type(*literals).type, None
 
     # if all resolved variables are numeric scalars
     if all(term.isscalar for term in terms):
