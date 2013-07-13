@@ -214,12 +214,13 @@ class BaseExprVisitor(ast.NodeVisitor):
     unary_op_nodes = 'UAdd', 'USub', 'Invert'
     unary_op_nodes_map = dict(itertools.izip(unary_ops, unary_op_nodes))
 
-    def __init__(self, env):
+    def __init__(self, env, preparser=_preparse):
         self.env = env
+        self.preparser = preparser
 
     def visit(self, node, **kwargs):
         if isinstance(node, basestring):
-            node = ast.fix_missing_locations(ast.parse(_preparse(node)))
+            node = ast.fix_missing_locations(ast.parse(self.preparser(node)))
 
         method = 'visit_' + node.__class__.__name__
         visitor = getattr(self, method, None)
@@ -256,18 +257,12 @@ class BaseExprVisitor(ast.NodeVisitor):
     def visit_List(self, node, **kwargs):
         return Constant([self.visit(e).value for e in node.elts], self.env)
 
-    def visit_Tuple(self, node, **kwargs):
-        return self.visit_List(node, **kwargs)
+    visit_Tuple = visit_List
 
     def visit_Index(self, node, **kwargs):
         """ df.index[4] """
-        visited = self.visit(node.value)
+        return self.visit(node.value)
 
-        try:
-            return visited.value
-        except AttributeError:
-            # python3 parses neg numbers as a USub node
-            return self.visit(ast.Num(n=-visited.operand.n))
 
     def visit_Subscript(self, node, **kwargs):
         """ df.index[4:6] """
@@ -351,18 +346,16 @@ class BaseExprVisitor(ast.NodeVisitor):
 
 _numexpr_not_supported = frozenset(['Assign', 'BoolOp', 'Not', 'Str', 'Slice',
                                     'Index', 'Subscript', 'Tuple', 'List',
-                                    'Dict'])
+                                    'Dict', 'Call'])
 _numexpr_supported_calls = frozenset(_reductions + _mathops)
 
 @disallow(_unsupported_nodes | _numexpr_not_supported)
 class NumExprVisitor(BaseExprVisitor):
-    def visit_Call(self, node, **kwargs):
-        if not isinstance(node.func, ast.Name):
-            raise TypeError("Only named functions are supported")
-
-        if node.func.id not in _numexpr_supported_calls:
-            raise ValueError("Only {0} are "
-                             "supported".format(_numexpr_supported_calls))
+    def __init__(self, env, preparser=None):
+        if preparser is not None:
+            raise ValueError("only strict numexpr syntax is supported")
+        preparser = lambda x: x
+        super(NumExprVisitor, self).__init__(env, preparser)
 
 
 _python_not_supported = _numexpr_not_supported
