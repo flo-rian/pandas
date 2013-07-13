@@ -261,10 +261,12 @@ class BaseExprVisitor(ast.NodeVisitor):
 
     def visit_Index(self, node, **kwargs):
         """ df.index[4] """
+        visited = self.visit(node.value)
+
         try:
-            return self.visit(node.value).value
+            return visited.value
         except AttributeError:
-            return self.visit(ast.Num(n=-self.visit(node.value).operand.n))
+            return self.visit(ast.Num(n=-visited.operand.n))
 
     def visit_Subscript(self, node, **kwargs):
         """ df.index[4:6] """
