@@ -264,8 +264,7 @@ class BaseExprVisitor(ast.NodeVisitor):
         try:
             return self.visit(node.value).value
         except AttributeError:
-            # negative values in python3 are technically a function call
-            return self.visit(node.operand).value
+            return self.visit(ast.Num(n=-self.visit(node.value).operand.n))
 
     def visit_Subscript(self, node, **kwargs):
         """ df.index[4:6] """
