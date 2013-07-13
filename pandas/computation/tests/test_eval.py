@@ -99,7 +99,6 @@ def _series_and_2d_ndarray(lhs, rhs):
             > 1)
 
 
-# Smoke testing
 class TestBasicEval(unittest.TestCase):
 
     @classmethod
@@ -652,8 +651,8 @@ _visitors = {'numexpr': NumExprVisitor, 'python': PythonExprVisitor,
              'pytables': pytables.ExprVisitor}
 
 
-# make sure the disallowed decorator is doing what i think it is
 def check_disallowed_nodes(engine):
+    """make sure the disallowed decorator works"""
     VisitorClass = _visitors[engine]
     uns_ops = VisitorClass.unsupported_nodes
     inst = VisitorClass('x + 1')

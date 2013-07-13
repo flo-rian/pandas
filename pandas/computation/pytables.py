@@ -1,5 +1,6 @@
 """ manage PyTables query interface via Expressions """
 
+import ast
 import time
 import itertools
 import warnings
@@ -360,6 +361,14 @@ class ExprVisitor(BaseExprVisitor):
     def visit_USub(self, node, **kwargs):
         return Constant(-self.visit(node.operand).value, self.env)
 
+    def visit_Index(self, node, **kwargs):
+        visited = self.visit(node.value)
+
+        try:
+            return visited.value
+        except AttributeError:
+            # python3 parses neg numbers as a USub node
+            return self.visit(ast.Num(n=-visited.operand.value))
 
 class Expr(expr.Expr):
 
