@@ -266,6 +266,7 @@ class BaseExprVisitor(ast.NodeVisitor):
         try:
             return visited.value
         except AttributeError:
+            # python3 parses neg numbers as a USub node
             return self.visit(ast.Num(n=-visited.operand.n))
 
     def visit_Subscript(self, node, **kwargs):
