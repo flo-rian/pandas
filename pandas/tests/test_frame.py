@@ -7712,12 +7712,16 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
             import numexpr as ne
         except ImportError:
             raise nose.SkipTest
+
         # comparison
         df = DataFrame(np.random.randn(10, 3), columns=['a', 'b', 'c'])
         assert_frame_equal(df.query('a < b'), df[df.a < df.b])
+        assert_frame_equal(df['a < b'], df[df.a < df.b])
 
         # arith ops
         assert_frame_equal(df.query('a + b > b * c'),
+                           df[df.a + df.b > df.b * df.c])
+        assert_frame_equal(df['a + b > b * c'],
                            df[df.a + df.b > df.b * df.c])
 
         local_dict = dict(df.iteritems())
@@ -7739,11 +7743,17 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
                                                            name='blob'),
                        columns=['a', 'b', 'c'])
         assert_frame_equal(df.query('index < b'), df[df.index < df.b])
+        assert_frame_equal(df['index < b'], df[df.index < df.b])
         assert_frame_equal(df.query('index < 5'), df[df.index < 5])
+        assert_frame_equal(df['index < 5'], df[df.index < 5])
         assert_frame_equal(df.query('(blob < 5) & (a < b)'), df[(df.index < 5)
                                                                 & (df.a <
                                                                    df.b)])
+        assert_frame_equal(df['(blob < 5) & (a < b)'], df[(df.index < 5)
+                                                          & (df.a <
+                                                             df.b)])
         assert_frame_equal(df.query('blob < b'), df[df.index < df.b])
+        assert_frame_equal(df['blob < b'], df[df.index < df.b])
 
 
     #----------------------------------------------------------------------

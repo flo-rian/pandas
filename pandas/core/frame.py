@@ -37,6 +37,7 @@ from pandas.core.internals import (BlockManager,
 from pandas.core.series import Series, _radd_compat
 import pandas.computation.expressions as expressions
 from pandas.computation.eval import eval as _eval
+from pandas.computation.expr import maybe_expression
 from pandas.compat.scipy import scoreatpercentile as _quantile
 from pandas.util.compat import OrderedDict
 from pandas.util import py3compat
@@ -1997,12 +1998,21 @@ class DataFrame(NDFrame):
         elif isinstance(self.columns, MultiIndex):
             return self._getitem_multilevel(key)
         else:
-            # get column
-            if self.columns.is_unique:
-                return self._get_item_cache(key)
 
-            # duplicate columns
-            return self._constructor(self._data.get(key))
+            try:
+
+                # get column
+                if self.columns.is_unique:
+                    return self._get_item_cache(key)
+
+                # duplicate columns
+                return self._constructor(self._data.get(key))
+
+            except KeyError:
+
+                if maybe_expression(key):
+                    return self.query(key)
+                raise
 
     def _getitem_slice(self, key):
         return self._slice(key, axis=0)

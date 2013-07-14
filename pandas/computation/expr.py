@@ -396,6 +396,16 @@ class Expr(StringMixin):
         return self.terms.align(self.env)
 
 
+def maybe_expression(s):
+    """ loose checking if s is an expression """
+    if not isinstance(s, basestring):
+        return False
+    try:
+        # make sure we have an op at least
+        return any([ op in s for op in NumExprVisitor.binary_op_nodes_map.keys()])
+    except:
+        return False
+
 def isexpr(s, check_names=True):
     try:
         Expr(s)
