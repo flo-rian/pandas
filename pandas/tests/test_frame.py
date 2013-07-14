@@ -2044,7 +2044,6 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
         # this is ok
         df['foo2'] = np.ones((4,2)).tolist()
 
-
     def test_constructor_dtype_nocast_view(self):
         df = DataFrame([[1, 2]])
         should_be_view = DataFrame(df, dtype=df[0].dtype)
@@ -2838,7 +2837,6 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
                           [('a', [8]), ('a', [5]), ('b', [6])],
                           columns=['b', 'a', 'a'])
 
-
     def test_column_duplicates_operations(self):
 
         def check(result, expected=None):
@@ -2981,7 +2979,6 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
         self.assertRaises(com.PandasError, DataFrame, 'a', columns=['a', 'c'])
         self.assertRaises(
             com.PandasError, DataFrame, 'a', [1, 2], ['a', 'c'], float)
-
 
     def test_constructor_with_datetimes(self):
         intname = np.dtype(np.int_).name
@@ -4959,8 +4956,6 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
                 _do_test(mkdf(nrows, ncols,c_idx_nlevels=2),path,cnlvl=2)
                 _do_test(mkdf(nrows, ncols,r_idx_nlevels=2,c_idx_nlevels=2),
                          path,rnlvl=2,cnlvl=2)
-
-
 
     def test_to_csv_from_csv_w_some_infs(self):
 
@@ -7733,6 +7728,23 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
         # make sure that it's not just because we didn't pass the locals in
         self.assertRaises(AssertionError, self.assertRaises, NameError,
                           df.query, 'a < b', local_dict=local_dict)
+
+    def test_query_index(self):
+        try:
+            import numexpr as ne
+        except ImportError:
+            raise nose.SkipTest
+
+        df = DataFrame(np.random.randn(10, 3), index=Index(range(10),
+                                                           name='blob'),
+                       columns=['a', 'b', 'c'])
+        assert_frame_equal(df.query('index < b'), df[df.index < df.b])
+        assert_frame_equal(df.query('index < 5'), df[df.index < 5])
+        assert_frame_equal(df.query('(blob < 5) & (a < b)'), df[(df.index < 5)
+                                                                & (df.a <
+                                                                   df.b)])
+        assert_frame_equal(df.query('blob < b'), df[df.index < df.b])
+
 
     #----------------------------------------------------------------------
     # Transposing
