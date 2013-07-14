@@ -50,6 +50,7 @@ class Term(StringMixin):
         env = self.env
         key = self.name
         res = env.resolver(key)
+        self.update(res)
 
         if res is None:
             if not isinstance(key, basestring):
