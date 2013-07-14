@@ -77,19 +77,20 @@ def _filter_special_cases(f):
         if len(terms) == 1:
             return _align_core_single_unary_op(terms[0])
 
+        term_values = (term.value for term in terms)
         # only scalars
         if all(isinstance(term.value, pd.Index) or term.isscalar for term in
                terms):
-            return np.result_type(*(term.value for term in terms)), None
+            return np.result_type(*term_values), None
 
         # single element ndarrays
         all_has_size = all(hasattr(term.value, 'size') for term in terms)
-        if (all_has_size and all(term.value.size == 1 for term in terms)):
-            return np.result_type(*(term.value for term in terms)), None
+        if all_has_size and all(term.value.size == 1 for term in terms):
+            return np.result_type(*term_values), None
 
         # no pandas so just punt to the evaluator
         if not _any_pandas_objects(terms):
-            return np.result_type(*(term.value for term in terms)), None
+            return np.result_type(*term_values), None
 
         return f(terms)
     return wrapper
