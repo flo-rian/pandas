@@ -78,7 +78,8 @@ def _filter_special_cases(f):
             return _align_core_single_unary_op(terms[0])
 
         # only scalars
-        elif all(term.isscalar for term in terms):
+        if all(isinstance(term.value, pd.Index) or term.isscalar for term in
+               terms):
             return np.result_type(*(term.value for term in terms)), None
 
         # single element ndarrays
