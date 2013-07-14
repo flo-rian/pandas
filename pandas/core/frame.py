@@ -28,21 +28,18 @@ from pandas.core.common import (isnull, notnull, PandasError, _try_sort,
                                 _infer_dtype_from_scalar)
 from pandas.core.generic import NDFrame
 from pandas.core.index import Index, MultiIndex, _ensure_index
-from pandas.core.indexing import (_NDFrameIndexer, _maybe_droplevels,
-                                  _convert_to_index_sliceable, _check_bool_indexer,
-                                  _maybe_convert_indices)
+from pandas.core.indexing import (_maybe_droplevels,
+                                  _convert_to_index_sliceable,
+                                  _check_bool_indexer, _maybe_convert_indices)
 from pandas.core.internals import (BlockManager,
                                    create_block_manager_from_arrays,
                                    create_block_manager_from_blocks)
 from pandas.core.series import Series, _radd_compat
 import pandas.computation.expressions as expressions
 from pandas.computation.eval import eval as _eval
-from pandas.computation.ops import is_term
-from pandas.computation.expr import Expr, Scope
 from pandas.compat.scipy import scoreatpercentile as _quantile
 from pandas.util.compat import OrderedDict
 from pandas.util import py3compat
-from pandas.util.terminal import get_terminal_size
 from pandas.util.decorators import deprecate, Appender, Substitution
 
 from pandas.tseries.period import PeriodIndex
@@ -56,7 +53,6 @@ import pandas.core.generic as generic
 import pandas.core.nanops as nanops
 
 import pandas.lib as lib
-import pandas.tslib as tslib
 import pandas.algos as _algos
 
 from pandas.core.config import get_option, set_option
@@ -2064,9 +2060,16 @@ class DataFrame(NDFrame):
         return self.where(key)
 
     def query(self, expr, **kwargs):
-        return self[_eval(expr, resolvers=[self, {'index': self.index,
-                                                  'columns': self.columns}],
-                                                 **kwargs)]
+        resolvers = kwargs.get('resolvers', None)
+        if resolvers is None:
+            index_resolvers = {}
+            if self.index.name is not None:
+                index_resolvers[self.index.name] = self.index
+            index_resolvers.update({'index': self.index,
+                                    'columns': self.columns})
+            resolvers = [self, index_resolvers]
+            kwargs.update({'resolvers': resolvers})
+        return self[_eval(expr, **kwargs)]
 
     def _slice(self, slobj, axis=0, raise_on_error=False):
         if axis == 0:
