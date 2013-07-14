@@ -342,12 +342,7 @@ class UnaryOp(ops.UnaryOp):
 _op_classes = {'unary': UnaryOp}
 
 
-@add_ops(_op_classes)
 class ExprVisitor(BaseExprVisitor):
-    unary_ops = '-', '~'
-    unary_op_nodes = 'USub', 'Invert'
-    unary_op_nodes_map = dict(itertools.izip(unary_ops, unary_op_nodes))
-
     def __init__(self, env, **kwargs):
         super(ExprVisitor, self).__init__(env)
         for bin_op in self.binary_ops:
@@ -358,17 +353,19 @@ class ExprVisitor(BaseExprVisitor):
     def visit_Name(self, node, side=None, **kwargs):
         return Term(node.id, self.env, side=side, **kwargs)
 
+    def visit_UnaryOp(self, node, **kwargs):
+        if isinstance(node.op, (ast.Not, ast.Invert)):
+            return UnaryOp('~', self.visit(node.operand))
+        elif isinstance(node.op, ast.USub):
+            return Constant(-self.visit(node.operand).value, self.env)
+        elif isinstance(node.op, ast.UAdd):
+            raise NotImplementedError('Unary addition not supported')
+
     def visit_USub(self, node, **kwargs):
         return Constant(-self.visit(node.operand).value, self.env)
 
     def visit_Index(self, node, **kwargs):
-        visited = self.visit(node.value)
-
-        try:
-            return visited.value
-        except AttributeError:
-            # python3 parses neg numbers as a USub node
-            return self.visit(ast.Num(n=-visited.operand.value))
+        return self.visit(node.value).value
 
 class Expr(expr.Expr):
 
