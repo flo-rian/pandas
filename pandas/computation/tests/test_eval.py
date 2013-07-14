@@ -687,6 +687,30 @@ def test_simple_ops():
         check_simple_ops(engine)
 
 
+def check_no_new_locals(engine):
+    x = 1
+    lcls = locals()
+    pd.eval('x + 1')
+    assert_equal(lcls, locals().pop('lcls'))
+
+
+def test_no_new_locals():
+    for engine in _engines:
+        check_no_new_locals(engine)
+
+
+def check_no_new_globals(engine):
+    x = 1
+    gbls = globals()
+    pd.eval('x + 1')
+    assert_equal(gbls, globals())
+
+
+def test_no_new_globals():
+    for engine in _engines:
+        check_no_new_globals(engine)
+
+
 if __name__ == '__main__':
     nose.runmodule(argv=[__file__, '-vvs', '-x', '--pdb', '--pdb-failure'],
                    exit=False)
