@@ -2,7 +2,6 @@
 
 import ast
 import time
-import itertools
 import warnings
 from functools import partial
 from datetime import datetime
@@ -13,7 +12,7 @@ import pandas.core.common as com
 import pandas.lib as lib
 from pandas.computation import expr, ops
 from pandas.computation.ops import is_term, Constant
-from pandas.computation.expr import BaseExprVisitor, add_ops
+from pandas.computation.expr import BaseExprVisitor
 from pandas import Index
 from pandas.core.common import is_list_like
 
