@@ -689,9 +689,11 @@ def test_simple_ops():
 
 def check_no_new_locals(engine):
     x = 1
-    lcls = locals()
-    pd.eval('x + 1')
-    assert_equal(lcls, locals().pop('lcls'))
+    lcls = locals().copy()
+    pd.eval('x + 1', local_dict=lcls)
+    lcls2 = locals().copy()
+    lcls2.pop('lcls')
+    assert_equal(lcls, lcls2)
 
 
 def test_no_new_locals():
@@ -701,9 +703,10 @@ def test_no_new_locals():
 
 def check_no_new_globals(engine):
     x = 1
-    gbls = globals()
+    gbls = globals().copy()
     pd.eval('x + 1')
-    assert_equal(gbls, globals())
+    gbls2 = globals().copy()
+    assert_equal(gbls, gbls2)
 
 
 def test_no_new_globals():
