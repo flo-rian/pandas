@@ -34,6 +34,10 @@ class Scope(object):
         self.globals['Timestamp'] = lib.Timestamp
         self.globals['datetime'] = datetime
 
+        # SUCH a hack
+        self.globals['True'] = True
+        self.globals['False'] = False
+
         self.resolvers = resolvers or []
         self.resolver_keys = set(reduce(operator.add, (list(o.keys()) for o in
                                                        self.resolvers), []))
@@ -219,8 +223,15 @@ class BaseExprVisitor(ast.NodeVisitor):
         self.preparser = preparser
 
     def visit(self, node, **kwargs):
+        parse = lambda x: ast.fix_missing_locations(ast.parse(x))
         if isinstance(node, basestring):
-            node = ast.fix_missing_locations(ast.parse(self.preparser(node)))
+            clean = self.preparser(node)
+        elif isinstance(node, ast.AST):
+            clean = node
+        else:
+            raise TypeError("Cannot visit objects of type {0!r}"
+                            "".format(node.__class__.__name__))
+        node = parse(clean)
 
         method = 'visit_' + node.__class__.__name__
         visitor = getattr(self, method, None)
@@ -262,7 +273,6 @@ class BaseExprVisitor(ast.NodeVisitor):
     def visit_Index(self, node, **kwargs):
         """ df.index[4] """
         return self.visit(node.value)
-
 
     def visit_Subscript(self, node, **kwargs):
         """ df.index[4:6] """

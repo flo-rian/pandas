@@ -665,10 +665,10 @@ def test_disallowed_nodes():
         check_disallowed_nodes(engine)
 
 
-def check_simple_ops(engine):
-    ops = '+', '*', '/', '-', '%', '**'
+def check_simple_arith_ops(engine):
+    ops = expr._arith_ops_syms + expr._cmp_ops_syms
 
-    for op in ops:
+    for op in filter(lambda x: x != '//', ops):
         expec = _eval_single_bin(1, op, 1, engine_has_neg_frac(engine))
         x = pd.eval('1 {0} 1'.format(op), engine=engine)
         assert_equal(x, expec)
@@ -682,9 +682,35 @@ def check_simple_ops(engine):
         assert_equal(y, expec)
 
 
-def test_simple_ops():
+def check_simple_bool_ops(engine):
+    for op, lhs, rhs in itertools.product(expr._bool_ops_syms, (True, False),
+                                          (True, False)):
+        expec = _eval_single_bin(lhs, op, rhs, engine_has_neg_frac(engine))
+        x = pd.eval('lhs {0} rhs'.format(op), engine=engine)
+        assert_equal(x, expec)
+
+
+def check_bool_ops_with_constants(engine):
+    for op, lhs, rhs in itertools.product(expr._bool_ops_syms, ('True', 'False'),
+                                          ('True', 'False')):
+        expec = _eval_single_bin(eval(lhs), op, eval(rhs), engine_has_neg_frac(engine))
+        x = pd.eval('{0} {1} {2}'.format(lhs, op, rhs), engine=engine)
+        assert_equal(x, expec)
+
+
+def test_simple_arith_ops():
     for engine in _engines:
-        check_simple_ops(engine)
+        check_simple_arith_ops(engine)
+
+
+def test_simple_bool_ops():
+    for engine in _engines:
+        check_simple_bool_ops(engine)
+
+
+def test_bool_ops_with_constants():
+    for engine in _engines:
+        check_bool_ops_with_constants(engine)
 
 
 def check_no_new_locals(engine):
@@ -725,6 +751,27 @@ def check_panel_fails(engine):
 def test_panel_fails():
     for engine in _engines:
         check_panel_fails(engine)
+
+
+def check_constant(engine):
+    x = pd.eval('1', engine=engine)
+    assert_equal(x, 1)
+
+
+def test_constant():
+    for engine in _engines:
+        check_constant(engine)
+
+
+def check_single_variable(engine):
+    df = DataFrame(randn(10, 2))
+    df2 = pd.eval('df', engine=engine)
+    assert_frame_equal(df, df2)
+
+
+def test_single_variable():
+    for engine in _engines:
+        check_single_variable(engine)
 
 
 if __name__ == '__main__':
