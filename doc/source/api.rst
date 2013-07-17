@@ -148,6 +148,17 @@ Top-level dealing with datetimes
    to_datetime
 
 
+Top-level evaluation
+~~~~~~~~~~~~~~~~~~~~
+
+.. currentmodule:: pandas.computation.eval
+
+.. autosummary::
+   :toctree: generated/
+
+   eval
+
+
 Standard moving window functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -444,6 +455,7 @@ Indexing, iteration
    DataFrame.pop
    DataFrame.tail
    DataFrame.xs
+   DataFrame.query
 
 Binary operator functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~
