@@ -4,27 +4,30 @@ import numbers
 
 import numpy as np
 
-import six
-
 from pandas.computation.expr import Expr, Scope
 from pandas.computation.engines import _engines
 
 
-def eval(expr, engine='numexpr', truediv=True, local_dict=None,
-         global_dict=None, resolvers=None):
+def eval(expr, parser='pandas', engine='numexpr', truediv=True,
+         local_dict=None, global_dict=None, resolvers=None):
     """Evaluate a Python expression as a string using various backends.
 
     The following arithmetic operations are supported: +, -, *, /, **, %, //
     (python engine only) along with the following boolean operations: | (or), &
-    (and), and ~ (not). All Pandas objects are supported and behave as they
-    would with in-Python evaluation.
+    (and), and ~ (not). Series and DataFrame objects are supported and behave
+    as they would with in-Python evaluation.
 
     Parameters
     ----------
     expr : string or Expr object
         The expression to evaluate. This can be either a string or an ``Expr``
         object.
-    engine : string, optional, default 'numexpr', {'python', 'numexpr' }
+    parser : str, optional, default 'pandas', {'pandas', 'numexpr'}
+        The parser to use to construct the syntax tree from the expression. The
+        default of 'pandas' parses code slightly different than standard
+        Python. See the :ref:`enhancing performance <enhancingperf.eval>`
+        documentation for more details.
+    engine : string, optional, default 'numexpr', {'python', 'numexpr'}
         The engine used to evaluate the expression. Supported engines are
 
         - 'numexpr': This default engine evaluates pandas objects using numexpr
@@ -32,7 +35,6 @@ def eval(expr, engine='numexpr', truediv=True, local_dict=None,
                      frames.
         - 'python': Performs operations as if you had eval'd in top level
                     python
-
     truediv : bool, optional, default True
         Whether to use true division, like in Python >= 3
     local_dict : dict or None, optional, default None
@@ -42,13 +44,10 @@ def eval(expr, engine='numexpr', truediv=True, local_dict=None,
 
     Returns
     -------
-    obj : ndarray, scalar, DataFrame, Series, or Panel
+    obj : ndarray, scalar, DataFrame, Series
 
     Notes
     -----
-    * The benefits of using ``eval`` are that very large frames that are terms in
-      long expressions are sped up, sometimes by as much as 10x.
-
     See :ref:`Enhancing performance <enhancingperf.eval>` for more details.
     """
     # make sure we're passed a valid engine
@@ -58,11 +57,11 @@ def eval(expr, engine='numexpr', truediv=True, local_dict=None,
 
     eng = _engines[engine]
 
-    if isinstance(expr, six.string_types):
+    if isinstance(expr, basestring):
         # need to go 2 up in the call stack from the constructor
         env = Scope(global_dict, local_dict, frame_level=2,
                     resolvers=resolvers)
-        parsed_expr = Expr(expr, engine, env, truediv)
+        parsed_expr = Expr(expr, engine, parser, env, truediv)
     elif isinstance(expr, Expr):
         parsed_expr = expr
     else:

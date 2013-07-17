@@ -8,10 +8,10 @@ from cStringIO import StringIO
 from functools import partial
 
 from pandas.core.base import StringMixin
-from pandas.computation.ops import BinOp, UnaryOp, _reductions, _mathops
-from pandas.computation.ops import _cmp_ops_syms, _bool_ops_syms
-from pandas.computation.ops import _arith_ops_syms, _unary_ops_syms
-from pandas.computation.ops import Term, Constant
+from pandas.computation.ops import (BinOp, UnaryOp, _reductions, _mathops,
+                                    _cmp_ops_syms, _bool_ops_syms,
+                                    _arith_ops_syms, _unary_ops_syms, Term,
+                                    Constant)
 
 import pandas.lib as lib
 import datetime
@@ -368,6 +368,12 @@ class NumExprVisitor(BaseExprVisitor):
         super(NumExprVisitor, self).__init__(env, preparser)
 
 
+@disallow(_unsupported_nodes | _numexpr_not_supported)
+class PandasExprVisitor(BaseExprVisitor):
+    def __init__(self, env, preparser=_preparse):
+        super(PandasExprVisitor, self).__init__(env, preparser)
+
+
 _python_not_supported = _numexpr_not_supported
 
 @disallow(_unsupported_nodes | _python_not_supported)
@@ -379,10 +385,11 @@ class Expr(StringMixin):
 
     """Expr object"""
 
-    def __init__(self, expr, engine='numexpr', env=None, truediv=True):
+    def __init__(self, expr, engine='numexpr', parser='pandas', env=None,
+                 truediv=True):
         self.expr = expr
         self.env = env or Scope(frame_level=2)
-        self._visitor = _visitors[engine](self.env)
+        self._visitor = _visitors[parser](self.env)
         self.terms = self.parse()
         self.engine = engine
         self.truediv = truediv
@@ -416,6 +423,7 @@ def maybe_expression(s):
     except:
         return False
 
+
 def isexpr(s, check_names=True):
     try:
         Expr(s)
@@ -427,4 +435,5 @@ def isexpr(s, check_names=True):
         return True
 
 
-_visitors = {'python': PythonExprVisitor, 'numexpr': NumExprVisitor}
+_visitors = {'python': PythonExprVisitor, 'numexpr': NumExprVisitor,
+             'pandas': PandasExprVisitor}
