@@ -34,19 +34,11 @@ class Term(StringMixin):
         self.side = side
         self.value = self._resolve_name()
 
-        try:
-            # ndframe potentially very slow for large, mixed dtype frames
-            self.type = self.value.values.dtype
-        except AttributeError:
-            try:
-                # ndarray
-                self.type = self.value.dtype
-            except AttributeError:
-                # scalar
-                self.type = type(self.value)
-
     def __unicode__(self):
         return com.pprint_thing(self.name)
+
+    def __call__(self, *args, **kwargs):
+        return self.value
 
     def _resolve_name(self):
         env = self.env
@@ -86,6 +78,21 @@ class Term(StringMixin):
     @property
     def isscalar(self):
         return np.isscalar(self.value)
+
+    @property
+    def type(self):
+        try:
+            # ndframe potentially very slow for large, mixed dtype frames
+            return self.value.values.dtype
+        except AttributeError:
+            try:
+                # ndarray
+                return self.value.dtype
+            except AttributeError:
+                # scalar
+                return type(self.value)
+
+    return_type = type
 
 
 class Constant(Term):
