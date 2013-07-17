@@ -271,3 +271,32 @@ Further topics
 - Loading C modules into cython.
 
 Read more in the `cython docs <http://docs.cython.org/>`_.
+
+
+.. _enhancingperf.eval:
+
+Expression Evaluation
+~~~~~~~~~~~~~~~~~~~~~
+New in pandas v0.13 a top-level function named
+:func:`~pandas.computation.eval.eval` that implements expression evaluation of 
+:class:`~pandas.core.series.Series` and :class:`~pandas.core.frame.DataFrame`
+objects.
+
+The major benefit of using :func:`~pandas.computation.eval.eval` for expression
+evaluation rather than just straight-up Python is two-fold: large
+:class:`~pandas.core.frame.DataFrame` objects are evaluated more efficiently
+and large expressions are evaluated all at once by the underlying engine (by
+default  ``numexpr`` is used for evaluation).
+
+.. note::
+
+   You should not use :func:`~pandas.computation.eval.eval` for simple
+   expressions or for expressions involving small DataFrames. In fact,
+   :func:`~pandas.computation.eval.eval` is many orders of magnitude slower for
+   smaller expressions/objects than plain ole' Python. A good rule of thumb is
+   too only use :func:`~pandas.computation.eval.eval` when you have a
+   :class:`~pandas.core.frame.DataFrame` with more than 10,000 rows.
+
+
+:func:`~pandas.computation.eval.eval` supports all arithmetic expressions
+supported by the engine (again, by default the engine is ``numexpr``).

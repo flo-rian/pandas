@@ -828,6 +828,17 @@ convert to an integer index:
     df_new[(df_new['index'] >= 1.0) & (df_new['index'] < 2)]
 
 
+.. _indexing.query:
+
+The ``query`` Method
+~~~~~~~~~~~~~~~~~~~~
+New in pandas v0.13, :class:`~pandas.core.frame.DataFrame` objects have a
+:meth:`~pandas.core.frame.DataFrame.query` method that allows selection using a
+string consisting of columns of the calling
+:class:`~pandas.core.frame.DataFrame`.
+
+
+
 .. _indexing.class:
 
 Index objects
