@@ -691,9 +691,11 @@ def check_simple_bool_ops(engine):
 
 
 def check_bool_ops_with_constants(engine):
+    asteval = ast.literal_eval
     for op, lhs, rhs in itertools.product(expr._bool_ops_syms, ('True', 'False'),
                                           ('True', 'False')):
-        expec = _eval_single_bin(eval(lhs), op, eval(rhs), engine_has_neg_frac(engine))
+        expec = _eval_single_bin(asteval(lhs), op, asteval(rhs),
+                                 engine_has_neg_frac(engine))
         x = pd.eval('{0} {1} {2}'.format(lhs, op, rhs), engine=engine)
         assert_equal(x, expec)
 
