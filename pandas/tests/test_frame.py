@@ -7739,21 +7739,33 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
         except ImportError:
             raise nose.SkipTest
 
-        df = DataFrame(np.random.randn(10, 3), index=Index(range(10),
-                                                           name='blob'),
+        df = DataFrame(np.random.randint(10, size=(10, 3)),
+                       index=Index(range(10), name='blob'),
                        columns=['a', 'b', 'c'])
         assert_frame_equal(df.query('index < b'), df[df.index < df.b])
         assert_frame_equal(df['index < b'], df[df.index < df.b])
         assert_frame_equal(df.query('index < 5'), df[df.index < 5])
         assert_frame_equal(df['index < 5'], df[df.index < 5])
-        assert_frame_equal(df.query('(blob < 5) & (a < b)'), df[(df.index < 5)
-                                                                & (df.a <
-                                                                   df.b)])
-        assert_frame_equal(df['(blob < 5) & (a < b)'], df[(df.index < 5)
-                                                          & (df.a <
-                                                             df.b)])
+        assert_frame_equal(df.query('(blob < 5) & (a < b)'),
+                           df[(df.index < 5) & (df.a < df.b)])
+        assert_frame_equal(df['(blob < 5) & (a < b)'],
+                           df[(df.index < 5) & (df.a < df.b)])
         assert_frame_equal(df.query('blob < b'), df[df.index < df.b])
         assert_frame_equal(df['blob < b'], df[df.index < df.b])
+
+    def test_query_different_parsers(self):
+        try:
+            import numexpr as ne
+        except ImportError:
+            raise nose.SkipTest
+        df = DataFrame(np.random.randn(10, 3), columns=['a', 'b', 'c'])
+        assert_frame_equal(df.query('(a < 5) & (a < b)', parser='numexpr'),
+                           df.query('a < 5 & a < b', parser='pandas'))
+        df = DataFrame(np.random.randint(10, size=(10, 3)),
+                       index=Index(range(10), name='blob'),
+                       columns=['a', 'b', 'c'])
+        assert_frame_equal(df.query('(blob < 5) & (a < b)', parser='numexpr'),
+                           df.query('blob < 5 & a < b', parser='pandas'))
 
 
     #----------------------------------------------------------------------
