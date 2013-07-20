@@ -2096,7 +2096,7 @@ class DataFrame(NDFrame):
         You can use a syntax that is semantically identical to Python by
         passing the keyword argument ``parser='numexpr'``.
 
-        The `index` of the :class:`~pandas.core.frame.DataFrame` instance is
+        The ``index`` of the :class:`~pandas.core.frame.DataFrame` instance is
         placed in the namespace by default, which allows you to treat the index
         as a column in the frame. The identifier ``index`` is used for this
         variable, and you can also use the name of the index to identify it in
@@ -2104,9 +2104,10 @@ class DataFrame(NDFrame):
 
         Raises
         ------
-        * ``NameError`` if not all identifiers in the query can be found
-        * ``SyntaxError`` if a syntactically invalid Python expression is
-          passed.
+        NameError
+          * if not all identifiers in the query can be found
+        SyntaxError
+          * if a syntactically *invalid* Python expression is passed
 
         Examples
         --------
@@ -2129,9 +2130,25 @@ class DataFrame(NDFrame):
             >>> df = DataFrame(randn(n, 2), index=index, columns=list('bc'))
             >>> result = df.query('a < b & b < c')
 
+        A use case for :meth:`~pandas.core.frame.DataFrame.query` is when you
+        have a collection of :class:`~pandas.core.frame.DataFrame` s that have
+        a subset of column names in common. You can pass the same query to both
+        frames *without* having to specify which frame you're interested in
+        querying
+
+            >>> from pandas import DataFrame, Index
+            >>> from numpy.random import randn
+            >>> import numpy as np
+            >>> n = 100
+            >>> index = Index(np.arange(n), name='a')
+            >>> df = DataFrame(randn(n, 2), index=index, columns=list('bc'))
+            >>> df2 = DataFrame(randn(n + 10, 3))
+            >>> expr = 'a < b & b < c'
+            >>> results = map(lambda frame: frame.query(expr), [df, df2])
+
         See Also
         --------
-        :func:`~pandas.computation.eval.eval`
+        pandas.computation.eval.eval
         """
         resolvers = kwargs.get('resolvers', None)
         if resolvers is None:
