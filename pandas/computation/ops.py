@@ -51,9 +51,9 @@ class Term(StringMixin):
                 return key
             raise NameError('name {0!r} is not defined'.format(key))
 
-        if isinstance(res, pd.Panel):
-            raise NotImplementedError("Panel objects are not supported with "
-                                      "eval")
+        if hasattr(res, 'ndim') and res.ndim > 2:
+            raise NotImplementedError("N-dimensional objects, where N > 2, are"
+                                      " not supported with eval")
         return res
 
     def update(self, value):
