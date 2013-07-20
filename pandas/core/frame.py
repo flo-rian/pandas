@@ -2124,9 +2124,8 @@ class DataFrame(NDFrame):
 
             >>> from pandas import DataFrame, Index
             >>> from numpy.random import randn
-            >>> import numpy as np
-            >>> n = 100
-            >>> index = Index(np.arange(n), name='a')
+            >>> n = 10
+            >>> index = Index(randn(n), name='a')
             >>> df = DataFrame(randn(n, 2), index=index, columns=list('bc'))
             >>> result = df.query('a < b & b < c')
 
@@ -2138,9 +2137,8 @@ class DataFrame(NDFrame):
 
             >>> from pandas import DataFrame, Index
             >>> from numpy.random import randn
-            >>> import numpy as np
             >>> n = 100
-            >>> index = Index(np.arange(n), name='a')
+            >>> index = Index(randn(n), name='a')
             >>> df = DataFrame(randn(n, 2), index=index, columns=list('bc'))
             >>> df2 = DataFrame(randn(n + 10, 3))
             >>> expr = 'a < b & b < c'
