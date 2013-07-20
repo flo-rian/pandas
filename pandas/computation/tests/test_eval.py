@@ -20,7 +20,8 @@ from pandas import DataFrame, Series, Panel
 from pandas.util.testing import makeCustomDataframe as mkdf
 from pandas.computation.engines import _engines, _reconstruct_object
 from pandas.computation.align import _align_core
-from pandas.computation.expr import NumExprVisitor, PythonExprVisitor
+from pandas.computation.expr import (NumExprVisitor, PythonExprVisitor,
+                                     PandasExprVisitor)
 from pandas.computation.ops import _binary_ops_dict, _unary_ops_dict, Term
 import pandas.computation.expr as expr
 from pandas.computation import pytables
@@ -648,12 +649,12 @@ def test_or_fails():
 
 
 _visitors = {'numexpr': NumExprVisitor, 'python': PythonExprVisitor,
-             'pytables': pytables.ExprVisitor}
+             'pytables': pytables.ExprVisitor, 'pandas': PandasExprVisitor}
 
 
-def check_disallowed_nodes(engine):
+def check_disallowed_nodes(visitor):
     """make sure the disallowed decorator works"""
-    VisitorClass = _visitors[engine]
+    VisitorClass = _visitors[visitor]
     uns_ops = VisitorClass.unsupported_nodes
     inst = VisitorClass('x + 1')
     for ops in uns_ops:
@@ -661,8 +662,8 @@ def check_disallowed_nodes(engine):
 
 
 def test_disallowed_nodes():
-    for engine in ('pytables', 'numexpr', 'python'):
-        check_disallowed_nodes(engine)
+    for visitor in _visitors:
+        check_disallowed_nodes(visitor)
 
 
 def check_simple_arith_ops(engine):
@@ -753,6 +754,19 @@ def check_panel_fails(engine):
 def test_panel_fails():
     for engine in _engines:
         check_panel_fails(engine)
+
+
+def check_4d_ndarray_fails(engine):
+    x = randn(3, 4, 5, 6)
+    y = Series(randn(10))
+    assert_raises(NotImplementedError, pd.eval, 'x + y', local_dict={'x': x,
+                                                                     'y': y},
+                  engine=engine)
+
+
+def test_4d_ndarray_fails():
+    for engine in _engines:
+        check_4d_ndarray_fails(engine)
 
 
 def check_constant(engine):
