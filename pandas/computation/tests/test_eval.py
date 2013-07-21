@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import unittest
-import itertools
 import functools
 import numbers
 from itertools import product
@@ -20,11 +19,10 @@ import pandas as pd
 from pandas.core import common as com
 from pandas import DataFrame, Series, Panel
 from pandas.util.testing import makeCustomDataframe as mkdf
-from pandas.computation.engines import _engines, _reconstruct_object
-from pandas.computation.align import _align_core
+from pandas.computation.engines import _engines
 from pandas.computation.expr import (NumExprVisitor, PythonExprVisitor,
                                      PandasExprVisitor)
-from pandas.computation.ops import _binary_ops_dict, _unary_ops_dict, Term
+from pandas.computation.ops import _binary_ops_dict, _unary_ops_dict
 import pandas.computation.expr as expr
 from pandas.computation import pytables
 from pandas.computation.expressions import _USE_NUMEXPR
@@ -43,18 +41,6 @@ def engine_has_neg_frac(engine):
     return _engines[engine].has_neg_frac
 
 
-def _eval_from_expr(lhs, cmp1, rhs, binop, cmp2):
-    f1 = _binary_ops_dict[cmp1]
-    f2 = _binary_ops_dict[cmp2]
-    bf = _binary_ops_dict[binop]
-    env = Scope()
-    typ, axes = _align_core((Term('lhs', env), Term('rhs', env)))
-    lhs, rhs = env.locals['lhs'], env.locals['rhs']
-    ret_type = np.result_type(lhs, rhs)
-    return _reconstruct_object(typ, bf(f1(lhs, rhs), f2(lhs, rhs)), axes,
-                               ret_type)
-
-
 def _eval_single_bin(lhs, cmp1, rhs, engine):
     c = _binary_ops_dict[cmp1]
     if engine_has_neg_frac(engine):
@@ -65,12 +51,6 @@ def _eval_single_bin(lhs, cmp1, rhs, engine):
     else:
         result = c(lhs, rhs)
     return result
-
-
-def _eval_bin_and_unary(unary, lhs, arith1, rhs):
-    binop = _binary_ops_dict[arith1]
-    unop = expr._unary_ops_dict[unary]
-    return unop(binop(lhs, rhs))
 
 
 def _series_and_2d_ndarray(lhs, rhs):
@@ -139,11 +119,9 @@ class TestEvalPandas(unittest.TestCase):
 
     @slow
     def test_complex_cmp_ops(self):
-        for lhs, cmp1, rhs, binop, cmp2 in itertools.product(self.lhses,
-                                                             self.cmp_ops,
-                                                             self.rhses,
-                                                             self.bin_ops,
-                                                             self.cmp2_ops):
+        for lhs, cmp1, rhs, binop, cmp2 in product(self.lhses, self.cmp_ops,
+                                                   self.rhses, self.bin_ops,
+                                                   self.cmp2_ops):
             self.check_complex_cmp_op(lhs, cmp1, rhs, binop, cmp2)
 
     def test_simple_cmp_ops(self):
@@ -151,46 +129,41 @@ class TestEvalPandas(unittest.TestCase):
                       Series(randbool((5,))), randbool())
         bool_rhses = (DataFrame(randbool(size=(10, 5))),
                       Series(randbool((5,))), randbool())
-        for lhs, rhs, cmp_op in itertools.product(bool_lhses, bool_rhses,
-                                                  self.cmp_ops):
+        for lhs, rhs, cmp_op in product(bool_lhses, bool_rhses, self.cmp_ops):
             self.check_simple_cmp_op(lhs, cmp_op, rhs)
 
     @slow
     def test_binary_arith_ops(self):
-        for lhs, op, rhs in itertools.product(self.lhses, self.arith_ops,
-                                              self.rhses):
+        for lhs, op, rhs in product(self.lhses, self.arith_ops, self.rhses):
             self.check_binary_arith_op(lhs, op, rhs)
 
     def test_modulus(self):
-        for lhs, rhs in itertools.product(self.lhses, self.rhses):
+        for lhs, rhs in product(self.lhses, self.rhses):
             self.check_modulus(lhs, '%', rhs)
 
     def test_floor_division(self):
-        for lhs, rhs in itertools.product(self.lhses, self.rhses):
+        for lhs, rhs in product(self.lhses, self.rhses):
             self.check_floor_division(lhs, '//', rhs)
 
     def test_pow(self):
-        for lhs, rhs in itertools.product(self.lhses, self.rhses):
+        for lhs, rhs in product(self.lhses, self.rhses):
             self.check_pow(lhs, '**', rhs)
 
     @slow
     def test_unary_arith_ops(self):
-        for unary_op, lhs, arith_op, rhs in itertools.product(self.unary_ops,
-                                                              self.lhses,
-                                                              self.arith_ops,
-                                                              self.rhses):
+        for unary_op, lhs, arith_op, rhs in product(self.unary_ops, self.lhses,
+                                                    self.arith_ops,
+                                                    self.rhses):
             self.check_unary_arith_op(lhs, arith_op, rhs, unary_op)
 
     @slow
     def test_single_invert_op(self):
-        for lhs, op, rhs in itertools.product(self.lhses, self.cmp_ops,
-                                              self.rhses):
+        for lhs, op, rhs in product(self.lhses, self.cmp_ops, self.rhses):
             self.check_single_invert_op(lhs, op, rhs)
 
     @slow
     def test_compound_invert_op(self):
-        for lhs, op, rhs in itertools.product(self.lhses, self.cmp_ops,
-                                              self.rhses):
+        for lhs, op, rhs in product(self.lhses, self.cmp_ops, self.rhses):
             self.check_compound_invert_op(lhs, op, rhs)
 
     @skip_incompatible_operand
@@ -198,7 +171,9 @@ class TestEvalPandas(unittest.TestCase):
         ex = '(lhs {cmp1} rhs) {binop} (lhs {cmp2} rhs)'.format(cmp1=cmp1,
                                                                 binop=binop,
                                                                 cmp2=cmp2)
-        expected = _eval_from_expr(lhs, cmp1, rhs, binop, cmp2)
+        lhs_new = _eval_single_bin(lhs, cmp1, rhs, self.engine)
+        rhs_new = _eval_single_bin(lhs, cmp2, rhs, self.engine)
+        expected = _eval_single_bin(lhs_new, binop, rhs_new, self.engine)
         result = pd.eval(ex, engine=self.engine)
         assert_array_equal(result, expected)
 
@@ -693,8 +668,8 @@ def check_simple_arith_ops(engine):
 
 
 def check_simple_bool_ops(engine):
-    for op, lhs, rhs in itertools.product(expr._bool_ops_syms, (True, False),
-                                          (True, False)):
+    for op, lhs, rhs in product(expr._bool_ops_syms, (True, False), (True,
+                                                                     False)):
         expec = _eval_single_bin(lhs, op, rhs, engine)
         x = pd.eval('lhs {0} rhs'.format(op), engine=engine)
         assert_equal(x, expec)
@@ -702,8 +677,8 @@ def check_simple_bool_ops(engine):
 
 def check_bool_ops_with_constants(engine):
     asteval = ast.literal_eval
-    for op, lhs, rhs in itertools.product(expr._bool_ops_syms, ('True', 'False'),
-                                          ('True', 'False')):
+    for op, lhs, rhs in product(expr._bool_ops_syms, ('True', 'False'),
+                                ('True', 'False')):
         expec = _eval_single_bin(asteval(lhs), op, asteval(rhs), engine)
         x = pd.eval('{0} {1} {2}'.format(lhs, op, rhs), engine=engine)
         assert_equal(x, expec)
