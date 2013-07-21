@@ -7707,6 +7707,30 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
         expec = DataFrame([[nan, 2]])
         assert_frame_equal(res, expec)
 
+    def test_query_expressions(self):
+        try:
+            import numexpr as ne
+        except ImportError:
+            raise nose.SkipTest("cannot query engine numexpr when numexpr not installed")
+        df = DataFrame(np.random.randn(10, 3), columns=['a', 'b', 'c'])
+        assert_frame_equal(df['a < b'], df[df.a < df.b])
+        assert_frame_equal(df['a + b > b * c'],
+                           df[df.a + df.b > df.b * df.c])
+
+    def test_query_expressions_with_index(self):
+        try:
+            import numexpr as ne
+        except ImportError:
+            raise nose.SkipTest("cannot query engine numexpr when numexpr not installed")
+        df = DataFrame(np.random.randint(10, size=(10, 3)),
+                       index=Index(range(10), name='blob'),
+                       columns=['a', 'b', 'c'])
+        assert_frame_equal(df['index < b'], df[df.index < df.b])
+        assert_frame_equal(df['index < 5'], df[df.index < 5])
+        assert_frame_equal(df['(blob < 5) & (a < b)'],
+                           df[(df.index < 5) & (df.a < df.b)])
+        assert_frame_equal(df['blob < b'], df[df.index < df.b])
+
     def test_query(self):
         import itertools
         for engine, parser in itertools.product(comp.engines._engines,
@@ -7718,17 +7742,11 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
             try:
                 import numexpr as ne
             except ImportError:
-                raise nose.SkipTest
+                raise nose.SkipTest("cannot query engine numexpr when numexpr not installed")
 
-        # comparison
         df = DataFrame(np.random.randn(10, 3), columns=['a', 'b', 'c'])
         assert_frame_equal(df.query('a < b'), df[df.a < df.b])
-        assert_frame_equal(df['a < b'], df[df.a < df.b])
-
-        # arith ops
         assert_frame_equal(df.query('a + b > b * c'),
-                           df[df.a + df.b > df.b * df.c])
-        assert_frame_equal(df['a + b > b * c'],
                            df[df.a + df.b > df.b * df.c])
 
         local_dict = dict(df.iteritems())
@@ -7741,36 +7759,31 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
                           df.query, 'a < b', local_dict=local_dict,
                           engine=engine, parser=parser)
 
+    def test_query_index(self):
+        import itertools
+        for engine, parser in itertools.product(comp.engines._engines,
+                                                comp.expr._parsers):
+            self.check_query_index(engine, parser)
+
     def check_query_index(self, engine, parser):
         if engine == 'numexpr':
             try:
                 import numexpr as ne
             except ImportError:
-                raise nose.SkipTest
+                raise nose.SkipTest("cannot query engine numexpr when numexpr not installed")
 
         df = DataFrame(np.random.randint(10, size=(10, 3)),
                        index=Index(range(10), name='blob'),
                        columns=['a', 'b', 'c'])
         assert_frame_equal(df.query('index < b', engine=engine, parser=parser),
                            df[df.index < df.b])
-        assert_frame_equal(df['index < b'], df[df.index < df.b])
         assert_frame_equal(df.query('index < 5', engine=engine, parser=parser),
                            df[df.index < 5])
-        assert_frame_equal(df['index < 5'], df[df.index < 5])
         assert_frame_equal(df.query('(blob < 5) & (a < b)', engine=engine,
                                     parser=parser),
                            df[(df.index < 5) & (df.a < df.b)])
-        assert_frame_equal(df['(blob < 5) & (a < b)'],
-                           df[(df.index < 5) & (df.a < df.b)])
         assert_frame_equal(df.query('blob < b', engine=engine, parser=parser),
                            df[df.index < df.b])
-        assert_frame_equal(df['blob < b'], df[df.index < df.b])
-
-    def test_query_index(self):
-        import itertools
-        for engine, parser in itertools.product(comp.engines._engines,
-                                                comp.expr._parsers):
-            self.check_query_index(engine, parser)
 
     def test_query_different_parsers(self):
         for engine in comp.engines._engines:
@@ -7781,15 +7794,19 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
             try:
                 import numexpr as ne
             except ImportError:
-                raise nose.SkipTest
+                raise nose.SkipTest("cannot query engine numexpr when numexpr not installed")
         df = DataFrame(np.random.randn(10, 3), columns=['a', 'b', 'c'])
-        assert_frame_equal(df.query('(a < 5) & (a < b)', parser='python', engine=engine),
-                           df.query('a < 5 & a < b', parser='pandas', engine=engine))
+        assert_frame_equal(df.query('(a < 5) & (a < b)', parser='python',
+                                    engine=engine),
+                           df.query('a < 5 & a < b', parser='pandas',
+                                    engine=engine))
         df = DataFrame(np.random.randint(10, size=(10, 3)),
                        index=Index(range(10), name='blob'),
                        columns=['a', 'b', 'c'])
-        assert_frame_equal(df.query('(blob < 5) & (a < b)', parser='python', engine=engine),
-                           df.query('blob < 5 & a < b', parser='pandas', engine=engine))
+        assert_frame_equal(df.query('(blob < 5) & (a < b)', parser='python',
+                                    engine=engine),
+                           df.query('blob < 5 & a < b', parser='pandas',
+                                    engine=engine))
 
 
     #----------------------------------------------------------------------
