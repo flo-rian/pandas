@@ -1,7 +1,7 @@
 from vbench.benchmark import Benchmark
 from datetime import datetime
 
-setup = common_setup = """from pandas_vb_common import *
+setup = """from pandas_vb_common import *
 import pandas as pd
 df  = DataFrame(np.random.randn(20000, 100))
 df2 = DataFrame(np.random.randn(20000, 100))
