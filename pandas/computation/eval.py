@@ -52,8 +52,8 @@ def eval(expr, parser='pandas', engine='numexpr', truediv=True,
     """
     # make sure we're passed a valid engine
     if not engine in _engines:
-        raise KeyError('Invalid engine {0} passed, valid engines are'
-                       ' {1}'.format(_engines.keys()))
+        raise KeyError('Invalid engine {0!r} passed, valid engines are'
+                       ' {1}'.format(engine, _engines.keys()))
 
     eng = _engines[engine]
 
