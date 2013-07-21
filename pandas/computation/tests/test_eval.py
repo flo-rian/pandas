@@ -252,32 +252,50 @@ class TestEvalPandas(unittest.TestCase):
     def check_modulus(self, lhs, rhs):
         ex = 'lhs % rhs'
         result = pd.eval(ex, engine=self.engine)
-        expected = _eval_single_bin(lhs, '%', rhs,
-                                    engine_has_neg_frac(self.engine))
+        expected = lhs % rhs
         assert_allclose(result, expected)
         expected = self.ne.evaluate('expected % rhs')
         assert_allclose(result, expected)
 
     def check_floor_division(self, lhs, rhs):
-        pass
+        ex = 'lhs // rhs'
+
+        if self.engine == 'python':
+            res = pd.eval(ex, engine=self.engine)
+            expected = lhs // rhs
+            assert_array_equal(res, expected)
+        else:
+            self.assertRaises(TypeError, pd.eval, ex, local_dict={'lhs': lhs,
+                                                                  'rhs': rhs},
+                              engine=self.engine)
+
+    def get_expected_pow_result(self, lhs, rhs):
+        try:
+            expected = _eval_single_bin(lhs, '**', rhs,
+                                        engine_has_neg_frac(self.engine))
+        except ValueError as e:
+            msg = 'negative number cannot be raised to a fractional power'
+            if e.message == msg:
+                if self.engine == 'python':
+                    raise nose.SkipTest(e.message)
+                else:
+                    expected = np.nan
+            # raise on other, possibly valid ValueErrors
+            else:
+                raise
+        return expected
 
     def check_pow(self, lhs, rhs):
-        arith1 = '**'
-        ex = 'lhs {0} rhs'.format(arith1)
-        try:
-            result = pd.eval(ex, engine=self.engine)
-        except ValueError as e:
-            if self.engine == 'python':
-                raise nose.SkipTest(e.message)
-            raise
-        expected = _eval_single_bin(lhs, arith1, rhs,
-                                    engine_has_neg_frac(self.engine))
-        assert_array_equal(result, expected)
-        ex = '(lhs {0} rhs) {0} rhs'.format(arith1)
+        ex = 'lhs ** rhs'
+        expected = self.get_expected_pow_result(lhs, rhs)
         result = pd.eval(ex, engine=self.engine)
-        nlhs = _eval_single_bin(lhs, arith1, rhs,
-                                engine_has_neg_frac(self.engine))
-        self.check_alignment(result, nlhs, rhs, arith1)
+        assert_array_equal(result, expected)
+
+        ex = '(lhs ** rhs) ** rhs'
+        result = pd.eval(ex, engine=self.engine)
+        expected = self.get_expected_pow_result(
+            self.get_expected_pow_result(lhs, rhs), rhs)
+        assert_array_equal(result, expected)
 
     def check_single_invert_op(self, lhs, cmp1, rhs):
         # simple
