@@ -378,7 +378,7 @@ class Expr(StringMixin):
                  truediv=True):
         self.expr = expr
         self.env = env or Scope(frame_level=2)
-        self._visitor = _visitors[parser](self.env)
+        self._visitor = _parsers[parser](self.env)
         self.terms = self.parse()
         self.engine = engine
         self.truediv = truediv
@@ -407,7 +407,7 @@ def maybe_expression(s, kind='python'):
     if not isinstance(s, basestring):
         return False
     try:
-        visitor = _visitors[kind]
+        visitor = _parsers[kind]
         # make sure we have an op at least
         return any(op in s for op in visitor.binary_ops)
     except:
@@ -425,4 +425,4 @@ def isexpr(s, check_names=True):
         return True
 
 
-_visitors = {'python': PythonExprVisitor, 'pandas': PandasExprVisitor}
+_parsers = {'python': PythonExprVisitor, 'pandas': PandasExprVisitor}

@@ -4,7 +4,7 @@ import numbers
 
 import numpy as np
 
-from pandas.computation.expr import Expr, Scope
+from pandas.computation.expr import Expr, Scope, _parsers
 from pandas.computation.engines import _engines
 
 
@@ -51,9 +51,12 @@ def eval(expr, parser='pandas', engine='numexpr', truediv=True,
     See :ref:`Enhancing performance <enhancingperf.eval>` for more details.
     """
     # make sure we're passed a valid engine
-    if not engine in _engines:
+    if engine not in _engines:
         raise KeyError('Invalid engine {0!r} passed, valid engines are'
                        ' {1}'.format(engine, _engines.keys()))
+    if parser not in _parsers:
+        raise KeyError('Invalid parser {0!r} passed, valid parsers are'
+                       ' {1}'.format(parser, _parsers.keys()))
 
     eng = _engines[engine]
 

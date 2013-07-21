@@ -631,13 +631,13 @@ def test_or_fails():
         check_or_fails(engine)
 
 
-_visitors = {'python': PythonExprVisitor, 'pytables': pytables.ExprVisitor,
+_parsers = {'python': PythonExprVisitor, 'pytables': pytables.ExprVisitor,
              'pandas': PandasExprVisitor}
 
 
 def check_disallowed_nodes(visitor):
     """make sure the disallowed decorator works"""
-    VisitorClass = _visitors[visitor]
+    VisitorClass = _parsers[visitor]
     uns_ops = VisitorClass.unsupported_nodes
     inst = VisitorClass('x + 1')
     for ops in uns_ops:
@@ -645,7 +645,7 @@ def check_disallowed_nodes(visitor):
 
 
 def test_disallowed_nodes():
-    for visitor in _visitors:
+    for visitor in _parsers:
         check_disallowed_nodes(visitor)
 
 
@@ -776,6 +776,12 @@ def test_invalid_engine():
     assertRaisesRegexp(KeyError, 'Invalid engine \'asdf\' passed',
                        pd.eval, 'x + y', local_dict={'x': 1, 'y': 2},
                        engine='asdf')
+
+
+def test_invalid_parser():
+    assertRaisesRegexp(KeyError, 'Invalid parser \'asdf\' passed',
+                       pd.eval, 'x + y', local_dict={'x': 1, 'y': 2},
+                       parser='asdf')
 
 
 if __name__ == '__main__':
