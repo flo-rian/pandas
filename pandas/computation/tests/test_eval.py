@@ -361,16 +361,6 @@ class TestEvalPandas(unittest.TestCase):
 
 class TestEvalPython(TestEvalPandas):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.cmp_ops = expr._cmp_ops_syms
-        cls.cmp2_ops = cls.cmp_ops[::-1]
-        cls.bin_ops = expr._bool_ops_syms
-        cls.special_case_ops = ('//', '**', '%')
-        cls.arith_ops = tuple(o for o in expr._arith_ops_syms if o not in
-                              cls.special_case_ops)
-        cls.unary_ops = '+', '-'
-
     def set_current_engine(self):
         self.engine = 'python'
 
