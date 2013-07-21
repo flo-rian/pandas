@@ -354,27 +354,16 @@ class BaseExprVisitor(ast.NodeVisitor):
         return node
 
 
-_numexpr_not_supported = frozenset(['Assign', 'BoolOp', 'Not', 'Str', 'Slice',
+_python_not_supported = frozenset(['Assign', 'BoolOp', 'Not', 'Str', 'Slice',
                                     'Index', 'Subscript', 'Tuple', 'List',
                                     'Dict', 'Call'])
 _numexpr_supported_calls = frozenset(_reductions + _mathops)
 
-@disallow(_unsupported_nodes | _numexpr_not_supported)
-class NumExprVisitor(BaseExprVisitor):
-    def __init__(self, env, preparser=None):
-        if preparser is not None:
-            raise ValueError("only strict numexpr syntax is supported")
-        preparser = lambda x: x
-        super(NumExprVisitor, self).__init__(env, preparser)
-
-
-@disallow(_unsupported_nodes | _numexpr_not_supported)
+@disallow(_unsupported_nodes | _python_not_supported)
 class PandasExprVisitor(BaseExprVisitor):
     def __init__(self, env, preparser=_preparse):
         super(PandasExprVisitor, self).__init__(env, preparser)
 
-
-_python_not_supported = _numexpr_not_supported
 
 @disallow(_unsupported_nodes | _python_not_supported)
 class PythonExprVisitor(BaseExprVisitor):
@@ -413,13 +402,14 @@ class Expr(StringMixin):
         return self.terms.align(self.env)
 
 
-def maybe_expression(s):
+def maybe_expression(s, kind='python'):
     """ loose checking if s is an expression """
     if not isinstance(s, basestring):
         return False
     try:
+        visitor = _visitors[kind]
         # make sure we have an op at least
-        return any([ op in s for op in NumExprVisitor.binary_op_nodes_map.keys()])
+        return any(op in s for op in visitor.binary_ops)
     except:
         return False
 
@@ -435,5 +425,4 @@ def isexpr(s, check_names=True):
         return True
 
 
-_visitors = {'python': PythonExprVisitor, 'numexpr': NumExprVisitor,
-             'pandas': PandasExprVisitor}
+_visitors = {'python': PythonExprVisitor, 'pandas': PandasExprVisitor}

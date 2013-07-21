@@ -20,8 +20,7 @@ from pandas.core import common as com
 from pandas import DataFrame, Series, Panel
 from pandas.util.testing import makeCustomDataframe as mkdf
 from pandas.computation.engines import _engines
-from pandas.computation.expr import (NumExprVisitor, PythonExprVisitor,
-                                     PandasExprVisitor)
+from pandas.computation.expr import PythonExprVisitor, PandasExprVisitor
 from pandas.computation.ops import _binary_ops_dict, _unary_ops_dict
 import pandas.computation.expr as expr
 from pandas.computation import pytables
@@ -357,7 +356,7 @@ def check_align_nested_unary_op(engine):
     skip_numexpr_engine(engine)
     s = 'df * ~2'
     df = mkdf(10, 10, data_gen_f=f)
-    res = pd.eval(s, engine)
+    res = pd.eval(s, engine=engine)
     assert_frame_equal(res, df * ~2)
 
 
@@ -632,8 +631,8 @@ def test_or_fails():
         check_or_fails(engine)
 
 
-_visitors = {'numexpr': NumExprVisitor, 'python': PythonExprVisitor,
-             'pytables': pytables.ExprVisitor, 'pandas': PandasExprVisitor}
+_visitors = {'python': PythonExprVisitor, 'pytables': pytables.ExprVisitor,
+             'pandas': PandasExprVisitor}
 
 
 def check_disallowed_nodes(visitor):

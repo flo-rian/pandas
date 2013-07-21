@@ -22,7 +22,7 @@ def eval(expr, parser='pandas', engine='numexpr', truediv=True,
     expr : string or Expr object
         The expression to evaluate. This can be either a string or an ``Expr``
         object.
-    parser : str, optional, default 'pandas', {'pandas', 'numexpr'}
+    parser : str, optional, default 'pandas', {'pandas', 'python'}
         The parser to use to construct the syntax tree from the expression. The
         default of 'pandas' parses code slightly different than standard
         Python. See the :ref:`enhancing performance <enhancingperf.eval>`
