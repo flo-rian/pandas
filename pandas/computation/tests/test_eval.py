@@ -27,7 +27,8 @@ import pandas.computation.expr as expr
 from pandas.computation import pytables
 from pandas.computation.expressions import _USE_NUMEXPR
 from pandas.computation.eval import Scope
-from pandas.util.testing import assert_frame_equal, randbool
+from pandas.util.testing import (assert_frame_equal, randbool,
+                                 assertRaisesRegexp)
 from pandas.util.py3compat import PY3
 
 
@@ -100,28 +101,36 @@ def _series_and_2d_ndarray(lhs, rhs):
             > 1)
 
 
-class TestBasicEval(unittest.TestCase):
+class TestEvalPandas(unittest.TestCase):
 
     @classmethod
-    def setUpClass(self):
-        self.cmp_ops = expr._cmp_ops_syms
-        self.cmp2_ops = self.cmp_ops[::-1]
-        self.bin_ops = expr._bool_ops_syms
-        self.arith_ops = tuple(o for o in expr._arith_ops_syms if o != '//')
-        self.unary_ops = '+', '-'
+    def setUpClass(cls):
+        cls.cmp_ops = expr._cmp_ops_syms
+        cls.cmp2_ops = cls.cmp_ops[::-1]
+        cls.bin_ops = expr._bool_ops_syms
+        cls.special_case_ops = ('//', '**', '%')
+        cls.arith_ops = tuple(o for o in expr._arith_ops_syms if o not in
+                              cls.special_case_ops)
+        cls.unary_ops = '+', '-'
 
     def set_current_engine(self):
         self.engine = 'numexpr'
 
     def setup_data(self):
-        nan_df = DataFrame(rand(10, 5))
-        nan_df[nan_df > 0.5] = np.nan
-        self.lhses = (DataFrame(randn(10, 5)), Series(randn(5)), randn(),
-                      np.float64(randn()), randn(10, 5), randn(5), np.nan,
-                      Series([1, 2, np.nan, np.nan, 5]), nan_df)
-        self.rhses = (DataFrame(randn(10, 5)), Series(randn(5)), randn(),
-                      np.float64(randn()), randn(10, 5), randn(5), np.nan,
-                      Series([1, 2, np.nan, np.nan, 5]), nan_df)
+        nan_df1 = DataFrame(rand(10, 5))
+        nan_df1[nan_df1 > 0.5] = np.nan
+        nan_df2 = DataFrame(rand(10, 5))
+        nan_df2[nan_df2 > 0.5] = np.nan
+
+        self.pandas_lhses = (DataFrame(randn(10, 5)), Series(randn(5)),
+                             Series([1, 2, np.nan, np.nan, 5]), nan_df1)
+        self.pandas_rhses = (DataFrame(randn(10, 5)), Series(randn(5)),
+                             Series([1, 2, np.nan, np.nan, 5]), nan_df2)
+        self.scalar_lhses = randn(), np.float64(randn()), np.nan
+        self.scalar_rhses = randn(), np.float64(randn()), np.nan
+
+        self.lhses = self.pandas_lhses + self.scalar_lhses
+        self.rhses = self.pandas_rhses + self.scalar_rhses
 
     def setUp(self):
         try:
@@ -136,48 +145,62 @@ class TestBasicEval(unittest.TestCase):
 
     @slow
     def test_complex_cmp_ops(self):
-        self.setUp()
-        lhses, rhses = self.lhses, self.rhses
-        args = itertools.product(lhses, self.cmp_ops, rhses, self.bin_ops,
-                                 self.cmp2_ops)
-        for lhs, cmp1, rhs, binop, cmp2 in args:
-            self._create_cmp_op_t(lhs, cmp1, rhs, binop, cmp2)
+        for lhs, cmp1, rhs, binop, cmp2 in itertools.product(self.lhses,
+                                                             self.cmp_ops,
+                                                             self.rhses,
+                                                             self.bin_ops,
+                                                             self.cmp2_ops):
+            self.check_complex_cmp_op(lhs, cmp1, rhs, binop, cmp2)
 
     def test_simple_cmp_ops(self):
         bool_lhses = (DataFrame(randbool(size=(10, 5))),
                       Series(randbool((5,))), randbool())
         bool_rhses = (DataFrame(randbool(size=(10, 5))),
                       Series(randbool((5,))), randbool())
-        args = itertools.product(bool_lhses, bool_rhses, self.cmp_ops)
-        for lhs, rhs, cmp_op in args:
-            self._create_simple_cmp_op_t(lhs, rhs, cmp_op)
+        for lhs, rhs, cmp_op in itertools.product(bool_lhses, bool_rhses,
+                                                  self.cmp_ops):
+            self.check_simple_cmp_op(lhs, rhs, cmp_op)
 
+    @slow
     def test_binary_arith_ops(self):
-        self.setUp()
-        lhses = DataFrame(randn(10, 5)), Series(randn(5)), randn()
-        rhses = DataFrame(randn(10, 5)), Series(randn(5)), randn()
-        args = itertools.product(lhses, self.arith_ops, rhses)
-        for lhs, op, rhs in args:
-            self._create_arith_op_t(lhs, op, rhs)
+        for lhs, op, rhs in itertools.product(self.lhses, self.arith_ops,
+                                              self.rhses):
+            self.check_binary_arith_op(lhs, op, rhs)
 
+    def test_modulus(self):
+        for lhs, rhs in itertools.product(self.lhses, self.rhses):
+            self.check_modulus(lhs, rhs)
+
+    def test_floor_division(self):
+        for lhs, rhs in itertools.product(self.lhses, self.rhses):
+            self.check_floor_division(lhs, rhs)
+
+    def test_pow(self):
+        for lhs, rhs in itertools.product(self.lhses, self.rhses):
+            self.check_pow(lhs, rhs)
+
+    @slow
     def test_unary_arith_ops(self):
-        self.setUp()
-        lhses = DataFrame(randn(10, 5)), Series(randn(5)), randn()
-        rhses = DataFrame(randn(10, 5)), Series(randn(5)), randn()
-        aops = tuple(aop for aop in self.arith_ops if aop not in '+-')
-        args = itertools.product(self.unary_ops, lhses, aops, rhses)
-        for unary_op, lhs, arith_op, rhs in args:
-            self._create_unary_arith_op_t(unary_op, lhs, arith_op, rhs)
+        for unary_op, lhs, arith_op, rhs in itertools.product(self.unary_ops,
+                                                              self.lhses,
+                                                              self.arith_ops,
+                                                              self.rhses):
+            self.check_unary_arith_op(unary_op, lhs, arith_op, rhs)
 
-    def test_invert(self):
-        self.setUp()
-        lhses = DataFrame(randn(10, 5)), Series(randn(5)), randn()
-        rhses = DataFrame(randn(10, 5)), Series(randn(5)), randn()
+    @slow
+    def test_single_invert_op(self):
+        for lhs, op, rhs in itertools.product(self.lhses, self.cmp_ops,
+                                              self.rhses):
+            self.check_single_invert_op(lhs, op, rhs)
+
+    @slow
+    def test_compound_invert_op(self):
+        lhses, rhses = self.lhses, self.rhses
         args = itertools.product(lhses, self.cmp_ops, rhses)
         for lhs, op, rhs in args:
-            self._create_invert_op_t(lhs, op, rhs)
+            self.check_compound_invert_op(lhs, op, rhs)
 
-    def _create_cmp_op_t(self, lhs, cmp1, rhs, binop, cmp2):
+    def check_complex_cmp_op(self, lhs, cmp1, rhs, binop, cmp2):
         ex = '(lhs {cmp1} rhs) {binop} (lhs {cmp2} rhs)'.format(cmp1=cmp1,
                                                                 binop=binop,
                                                                 cmp2=cmp2)
@@ -190,7 +213,7 @@ class TestBasicEval(unittest.TestCase):
             result = pd.eval(ex, engine=self.engine)
             assert_array_equal(result, expected)
 
-    def _create_simple_cmp_op_t(self, lhs, rhs, cmp1):
+    def check_simple_cmp_op(self, lhs, rhs, cmp1):
         ex = 'lhs {0} rhs'.format(cmp1)
 
         if are_compatible_types(cmp1, lhs, rhs):
@@ -202,65 +225,61 @@ class TestBasicEval(unittest.TestCase):
             assert_raises(TypeError, _eval_single_bin, lhs, cmp1, rhs,
                           engine_has_neg_frac(self.engine))
 
-    def _create_arith_op_t(self, lhs, arith1, rhs):
+    def check_binary_arith_op(self, lhs, arith1, rhs):
         ex = 'lhs {0} rhs'.format(arith1)
-        nan_frac_neg = (arith1 == '**' and np.any(lhs < 0) and
-                        hasfractional(rhs) and np.isscalar(lhs) and
-                        np.isscalar(rhs) and
-                        not (isinstance(lhs, tuple(np.typeDict.values()))
-                             or isinstance(rhs, tuple(np.typeDict.values()))))
-        if nan_frac_neg and not engine_has_neg_frac(self.engine):
-                assert_raises(ValueError, pd.eval, ex, engine=self.engine,
-                              local_dict=locals(), global_dict=globals())
+        result = pd.eval(ex, engine=self.engine)
+        expected = _eval_single_bin(lhs, arith1, rhs,
+                                    engine_has_neg_frac(self.engine))
+        assert_array_equal(result, expected)
+        ex = 'lhs {0} rhs {0} rhs'.format(arith1)
+        result = pd.eval(ex, engine=self.engine)
+        nlhs = _eval_single_bin(lhs, arith1, rhs,
+                                engine_has_neg_frac(self.engine))
+        self.check_alignment(result, nlhs, rhs, arith1)
+
+    def check_alignment(self, result, nlhs, ghs, op):
+        try:
+            nlhs, ghs = nlhs.align(ghs)
+        except (ValueError, TypeError, AttributeError):
+            # ValueError: series frame or frame series align
+            # TypeError, AttributeError: series or frame with scalar align
+            pass
         else:
+            expected = self.ne.evaluate('nlhs {0} ghs'.format(op))
+            assert_array_equal(result, expected)
+
+    # the following 3 tests require special casing
+    def check_modulus(self, lhs, rhs):
+        ex = 'lhs % rhs'
+        result = pd.eval(ex, engine=self.engine)
+        expected = _eval_single_bin(lhs, '%', rhs,
+                                    engine_has_neg_frac(self.engine))
+        assert_allclose(result, expected)
+        expected = self.ne.evaluate('expected % rhs')
+        assert_allclose(result, expected)
+
+    def check_floor_division(self, lhs, rhs):
+        pass
+
+    def check_pow(self, lhs, rhs):
+        arith1 = '**'
+        ex = 'lhs {0} rhs'.format(arith1)
+        try:
             result = pd.eval(ex, engine=self.engine)
+        except ValueError as e:
+            if self.engine == 'python':
+                raise nose.SkipTest(e.message)
+            raise
+        expected = _eval_single_bin(lhs, arith1, rhs,
+                                    engine_has_neg_frac(self.engine))
+        assert_array_equal(result, expected)
+        ex = '(lhs {0} rhs) {0} rhs'.format(arith1)
+        result = pd.eval(ex, engine=self.engine)
+        nlhs = _eval_single_bin(lhs, arith1, rhs,
+                                engine_has_neg_frac(self.engine))
+        self.check_alignment(result, nlhs, rhs, arith1)
 
-            if arith1 != '//':
-                expected = _eval_single_bin(lhs, arith1, rhs,
-                                            engine_has_neg_frac(self.engine))
-                # roundoff error with modulus
-                if arith1 == '%':
-                    assert_allclose(result, expected)
-                else:
-                    assert_array_equal(result, expected)
-
-            # sanity check on recursive parsing
-            try:
-                ghs = rhs.copy()
-            except AttributeError:
-                ghs = rhs
-
-        if nan_frac_neg and not engine_has_neg_frac(self.engine):
-            assert_raises(ValueError, pd.eval, ex, engine=self.engine,
-                          local_dict=locals(), global_dict=globals())
-        else:
-            if arith1 == '**':
-                ex = '(lhs {0} rhs) {0} ghs'.format(arith1)
-            else:
-                ex = 'lhs {0} rhs {0} ghs'.format(arith1)
-            result = pd.eval(ex, engine=self.engine)
-
-            try:
-                nlhs = _eval_single_bin(lhs, arith1, rhs,
-                                        engine_has_neg_frac(self.engine))
-            except ValueError:
-                assert_raises(ValueError, _eval_single_bin, lhs, arith1, rhs,
-                              engine_has_neg_frac(self.engine))
-            else:
-                try:
-                    nlhs, ghs = nlhs.align(ghs)
-                except:
-                    pass
-                if arith1 != '//':
-                    expected = self.ne.evaluate('nlhs {0} ghs'.format(arith1))
-
-                    # roundoff error with modulus
-                    if arith1 == '%':
-                        assert_allclose(result, expected)
-                    else:
-                        assert_array_equal(result, expected)
-
-    def _create_invert_op_t(self, lhs, cmp1, rhs):
+    def check_single_invert_op(self, lhs, cmp1, rhs):
         # simple
         for el in (lhs, rhs):
             try:
@@ -274,6 +293,7 @@ class TestBasicEval(unittest.TestCase):
             for engine in self.current_engines:
                 assert_array_equal(result, pd.eval('~elb', engine=engine))
 
+    def check_compound_invert_op(self, lhs, cmp1, rhs):
         # compound
         ex = '~(lhs {0} rhs)'.format(cmp1)
         if np.isscalar(lhs) and np.isscalar(rhs):
@@ -283,12 +303,12 @@ class TestBasicEval(unittest.TestCase):
         result = pd.eval(ex, engine=self.engine)
         assert_array_equal(expected, result)
 
-        # make sure the other engines work
+        # make sure the other engines work the same as this one
         for engine in self.current_engines:
             ev = pd.eval(ex, engine=self.engine)
             assert_array_equal(ev, result)
 
-    def _create_unary_arith_op_t(self, unary_op, lhs, arith1, rhs):
+    def check_unary_arith_op(self, unary_op, lhs, arith1, rhs):
         # simple
         ex = '{0}lhs'.format(unary_op, arith1)
         f = _unary_ops_dict[unary_op]
@@ -320,30 +340,17 @@ class TestBasicEval(unittest.TestCase):
             # compound
             result = pd.eval(ex, engine=self.engine)
 
-            #(lhs, rhs), _ = _align((lhs, rhs))
-            #if arith1 != '//':
-                #expected = self.ne.evaluate(ex)
-                #assert_array_equal(result, expected)
-            #else:
-                #assert_raises(TypeError, self.ne.evaluate, ex)
 
-            #for engine in self.current_engines:
-                #if arith1 != '//':
-                    #if engine_has_neg_frac(engine):
-                        #assert_array_equal(result, pd.eval(ex, engine=engine))
-                #else:
-                    #assert_raises(TypeError, pd.eval, ex, engine=engine,
-                                  #local_dict=locals(), global_dict=globals())
-
-
-class TestBasicEvalPython(TestBasicEval):
+class TestEvalPython(TestEvalPandas):
 
     @classmethod
     def setUpClass(cls):
         cls.cmp_ops = expr._cmp_ops_syms
         cls.cmp2_ops = cls.cmp_ops[::-1]
         cls.bin_ops = expr._bool_ops_syms
-        cls.arith_ops = expr._arith_ops_syms
+        cls.special_case_ops = ('//', '**', '%')
+        cls.arith_ops = tuple(o for o in expr._arith_ops_syms if o not in
+                              cls.special_case_ops)
         cls.unary_ops = '+', '-'
 
     def set_current_engine(self):
@@ -451,7 +458,6 @@ def check_basic_series_frame_alignment(engine, r_idx_type, c_idx_type,
         assert_frame_equal(res, expected)
 
 
-@slow
 def check_basic_series_frame_alignment_datetime(engine, r_idx_type, c_idx_type,
                                                 index_name):
     skip_numexpr_engine(engine)
@@ -503,6 +509,7 @@ def test_series_frame_commutativity():
                                          index_name)
 
 
+@slow
 def test_basic_frame_series_alignment():
     args = product(_engines, INDEX_TYPES, INDEX_TYPES, ('index', 'columns'))
     for engine, r_idx_type, c_idx_type, index_name in args:
@@ -519,6 +526,7 @@ def test_basic_series_frame_alignment_datetime():
                                                     c_idx_type, index_name)
 
 
+@slow
 def test_basic_series_frame_alignment():
     args = product(_engines, INDEX_TYPES, INDEX_TYPES, ('index', 'columns'))
     for engine, r_idx_type, c_idx_type, index_name in args:
@@ -788,6 +796,12 @@ def check_single_variable(engine):
 def test_single_variable():
     for engine in _engines:
         check_single_variable(engine)
+
+
+def test_invalid_engine():
+    assertRaisesRegexp(KeyError, 'Invalid engine \'asdf\' passed',
+                       pd.eval, 'x + y', local_dict={'x': 1, 'y': 2},
+                       engine='asdf')
 
 
 if __name__ == '__main__':
