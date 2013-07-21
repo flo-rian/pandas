@@ -562,7 +562,7 @@ class GeomDensity2D(Layer):
         import scipy.stats as stats
         kernel = stats.gaussian_kde(values)
         Z = np.reshape(kernel(positions).T, X.shape)
-        ax.contour(Z, extent=[x_min, x_max, y_min, y_max])
+        ax.contour(Z.T, extent=[x_min, x_max, y_min, y_max])
         return fig, ax
 
 class TrellisGrid(Layer):
