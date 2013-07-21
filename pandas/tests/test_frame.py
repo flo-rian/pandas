@@ -7773,18 +7773,23 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
             self.check_query_index(engine, parser)
 
     def test_query_different_parsers(self):
-        try:
-            import numexpr as ne
-        except ImportError:
-            raise nose.SkipTest
+        for engine in comp.engines._engines:
+            self.check_query_different_parsers(engine)
+
+    def check_query_different_parsers(self, engine):
+        if engine == 'numexpr':
+            try:
+                import numexpr as ne
+            except ImportError:
+                raise nose.SkipTest
         df = DataFrame(np.random.randn(10, 3), columns=['a', 'b', 'c'])
-        assert_frame_equal(df.query('(a < 5) & (a < b)', parser='python'),
-                           df.query('a < 5 & a < b', parser='pandas'))
+        assert_frame_equal(df.query('(a < 5) & (a < b)', parser='python', engine=engine),
+                           df.query('a < 5 & a < b', parser='pandas', engine=engine))
         df = DataFrame(np.random.randint(10, size=(10, 3)),
                        index=Index(range(10), name='blob'),
                        columns=['a', 'b', 'c'])
-        assert_frame_equal(df.query('(blob < 5) & (a < b)', parser='python'),
-                           df.query('blob < 5 & a < b', parser='pandas'))
+        assert_frame_equal(df.query('(blob < 5) & (a < b)', parser='python', engine=engine),
+                           df.query('blob < 5 & a < b', parser='pandas', engine=engine))
 
 
     #----------------------------------------------------------------------
