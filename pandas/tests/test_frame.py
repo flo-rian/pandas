@@ -7745,8 +7745,8 @@ class TestDataFrame(unittest.TestCase, CheckIndexing,
                 raise nose.SkipTest("cannot query engine numexpr when numexpr not installed")
 
         df = DataFrame(np.random.randn(10, 3), columns=['a', 'b', 'c'])
-        assert_frame_equal(df.query('a < b'), df[df.a < df.b])
-        assert_frame_equal(df.query('a + b > b * c'),
+        assert_frame_equal(df.query('a < b', engine=engine, parser=parser), df[df.a < df.b])
+        assert_frame_equal(df.query('a + b > b * c', engine=engine, parser=parser),
                            df[df.a + df.b > df.b * df.c])
 
         local_dict = dict(df.iteritems())
