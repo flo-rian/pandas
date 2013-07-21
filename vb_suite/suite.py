@@ -22,7 +22,8 @@ modules = ['attrs_caching',
            'sparse',
            'reshape',
            'stat_ops',
-           'timeseries']
+           'timeseries',
+           'eval']
 
 by_module = {}
 benchmarks = []
